@@ -138,7 +138,13 @@ CMemoryPanel::CMemoryPanel(QWidget* pParent) : QWidget(pParent) {
     m_ptable = new QTableWidget(ROWS, WORDS_PER_ROW + 1, this);
     m_ptable->horizontalHeader()->setVisible(false);
     m_ptable->verticalHeader()->setVisible(false);
-    m_ptable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // word cells editable (VC6 memory window style); the address column
+    // stays read-only
+    m_ptable->setEditTriggers(QAbstractItemView::DoubleClicked |
+                              QAbstractItemView::EditKeyPressed);
+    m_ptable->setToolTip(
+        "内存窗口：双击任意字单元可直接修改。\n"
+        "支持十六进制(如 0041、#41)、十进制(如 65、-1)或字符(如 'A')。");
     m_ptable->setSelectionMode(QAbstractItemView::NoSelection);
     m_ptable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_ptable->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
@@ -149,9 +155,18 @@ CMemoryPanel::CMemoryPanel(QWidget* pParent) : QWidget(pParent) {
         m_nBase = nValue & ~7;
         Rebuild();
     });
+
+    connect(m_ptable, &QTableWidget::itemChanged, this,
+            [this](QTableWidgetItem* pItem) {
+                if (m_bUpdating || !pItem || pItem->column() == 0) return;
+                const int nAddress =
+                    m_nBase + pItem->row() * WORDS_PER_ROW + (pItem->column() - 1);
+                emit WordEditRequested(nAddress, pItem->text());
+            });
 }
 
 void CMemoryPanel::Rebuild() {
+    m_bUpdating = true;
     for (int nRow = 0; nRow < ROWS; ++nRow) {
         auto* pItemAddr = new QTableWidgetItem(
             QString("%1").arg(m_nBase + nRow * WORDS_PER_ROW, 4, 16, QChar('0')).toUpper());
@@ -160,14 +175,16 @@ void CMemoryPanel::Rebuild() {
         m_ptable->setItem(nRow, 0, pItemAddr);
         for (int nCol = 0; nCol < WORDS_PER_ROW; ++nCol) {
             auto* pItem = new QTableWidgetItem("0000");
-            pItem->setFlags(Qt::NoItemFlags);
+            pItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsEditable);
             m_ptable->setItem(nRow, nCol + 1, pItem);
         }
     }
+    m_bUpdating = false;
 }
 
 void CMemoryPanel::UpdateMemory(const std::vector<uint16_t>& arrWords,
                                 uint16_t wHighlightAddr) {
+    m_bUpdating = true;
     m_wHighlightAddr = wHighlightAddr;
     if (m_pspinBase->value() != m_nBase) m_pspinBase->setValue(m_nBase);
     for (int nRow = 0; nRow < ROWS; ++nRow) {
@@ -180,6 +197,7 @@ void CMemoryPanel::UpdateMemory(const std::vector<uint16_t>& arrWords,
                                      : QBrush());
         }
     }
+    m_bUpdating = false;
 }
 
 void CMemoryPanel::Clear() {
@@ -188,32 +206,105 @@ void CMemoryPanel::Clear() {
 }
 
 // ---------------------------------------------------------------------------
-// CSymbolsPanel
+// CSymbolsPanel (VC6-style watch window)
 // ---------------------------------------------------------------------------
+
+namespace {
+
+// value column rendering: hex + decimal (+ printable char hint)
+QString FormatWatchValue(uint16_t wValue) {
+    QString str = QString("%1").arg(wValue, 4, 16, QChar('0')).toUpper();
+    if (wValue >= 0x20 && wValue < 0x7F)
+        str += QString(" '%1'").arg(QChar(wValue));
+    return str;
+}
+
+} // namespace
 
 CSymbolsPanel::CSymbolsPanel(QWidget* pParent) : QWidget(pParent) {
     auto* pLayout = new QVBoxLayout(this);
     pLayout->setContentsMargins(4, 4, 4, 4);
-    m_ptable = new QTableWidget(0, 2, this);
-    m_ptable->setHorizontalHeaderLabels({"label", "address"});
+    m_ptable = new QTableWidget(0, 4, this);
+    m_ptable->setHorizontalHeaderLabels({"变量", "地址", "值(可改)", "十进制"});
     m_ptable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    m_ptable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // value column editable (double-click / F2); other columns read-only
+    m_ptable->setEditTriggers(QAbstractItemView::DoubleClicked |
+                              QAbstractItemView::EditKeyPressed);
     m_ptable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_ptable->setToolTip(
+        "程序里每个标号的当前值（该地址处一个字的内容）。\n"
+        "双击“值”列可直接修改内存：支持十六进制(如 0041、#41)、\n"
+        "十进制(如 65、-1)或字符(如 'A')，回车生效。");
     pLayout->addWidget(m_ptable);
+
+    connect(m_ptable, &QTableWidget::itemChanged, this,
+            [this](QTableWidgetItem* pItem) {
+                if (m_bUpdating || !pItem) return;
+                if (pItem->column() != 2) return; // only the value column
+                // row -> address from the address column
+                QTableWidgetItem* pAddrItem =
+                    m_ptable->item(pItem->row(), 1);
+                bool bOk = false;
+                int nAddress = pAddrItem ? pAddrItem->text().toInt(&bOk, 16)
+                                         : 0;
+                if (bOk) emit ValueEditRequested(nAddress, pItem->text());
+            });
 }
 
-void CSymbolsPanel::UpdateSymbols(const std::map<std::string, int>& mapSymbols) {
+void CSymbolsPanel::UpdateSymbols(
+    const std::map<std::string, int>& mapSymbols) {
+    m_bUpdating = true;
     m_ptable->setRowCount((int)mapSymbols.size());
     int nRow = 0;
     for (const auto& kv : mapSymbols) {
         auto* pName = new QTableWidgetItem(QString::fromStdString(kv.first));
+        pName->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         auto* pAddr = new QTableWidgetItem(
             QString("%1").arg((uint16_t)kv.second, 4, 16, QChar('0')).toUpper());
         pAddr->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        auto* pValue = new QTableWidgetItem("0000");
+        pValue->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
+                         Qt::ItemIsEditable);
+        auto* pDec = new QTableWidgetItem("0");
+        pDec->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
         m_ptable->setItem(nRow, 0, pName);
         m_ptable->setItem(nRow, 1, pAddr);
+        m_ptable->setItem(nRow, 2, pValue);
+        m_ptable->setItem(nRow, 3, pDec);
         ++nRow;
     }
+    m_bUpdating = false;
+}
+
+void CSymbolsPanel::UpdateValues(const std::vector<uint16_t>& arrWords) {
+    if (arrWords.empty()) return;
+    m_bUpdating = true;
+    for (int nRow = 0; nRow < m_ptable->rowCount(); ++nRow) {
+        QTableWidgetItem* pAddrItem = m_ptable->item(nRow, 1);
+        if (!pAddrItem) continue;
+        bool bOk = false;
+        int nAddress = pAddrItem->text().toInt(&bOk, 16);
+        if (!bOk || nAddress < 0 ||
+            (size_t)nAddress >= arrWords.size())
+            continue;
+        const uint16_t wValue = arrWords[(size_t)nAddress];
+        QTableWidgetItem* pValue = m_ptable->item(nRow, 2);
+        if (pValue) pValue->setText(FormatWatchValue(wValue));
+        QTableWidgetItem* pDec = m_ptable->item(nRow, 3);
+        if (pDec)
+            pDec->setText(QString::number((int16_t)wValue));
+    }
+    m_bUpdating = false;
+}
+
+QString CSymbolsPanel::GetCellTextForTest(int nRow, int nCol) const {
+    QTableWidgetItem* pItem = m_ptable->item(nRow, nCol);
+    return pItem ? pItem->text() : QString();
+}
+
+void CSymbolsPanel::EditValueForTest(int nRow, const QString& strText) {
+    QTableWidgetItem* pItem = m_ptable->item(nRow, 2);
+    if (pItem) pItem->setText(strText); // fires itemChanged -> signal
 }
 
 // ---------------------------------------------------------------------------

@@ -20,6 +20,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPolygonF>
+#include <QRegularExpression>
 #include <QStatusBar>
 #include <QTextStream>
 #include <QToolBar>
@@ -54,6 +55,11 @@ CMainWindow::CMainWindow(QWidget* pParent) : QMainWindow(pParent) {
             &CMainWindow::OnErrorSelected);
     connect(m_pEditor, &CCodeEditor::BreakpointsChanged, this,
             &CMainWindow::OnBreakpointsChanged);
+    // watch / memory edits: parse the entered text and patch machine memory
+    connect(m_pSymbolsPanel, &CSymbolsPanel::ValueEditRequested, this,
+            &CMainWindow::OnMemoryEdit);
+    connect(m_pMemoryPanel, &CMemoryPanel::WordEditRequested, this,
+            &CMainWindow::OnMemoryEdit);
     // hover tooltips: register / symbol values from the latest snapshot
     m_pEditor->SetTooltipProvider(
         [this](const QString& strWord) { return MakeTooltipText(strWord); });
@@ -439,6 +445,56 @@ void CMainWindow::OnToggleBreakpoint() {
     m_pEditor->ToggleBreakpoint(m_pEditor->CurrentLine());
 }
 
+// parse a watch/memory edit: #1234 / 0041 / 41h (hex), 65 / -1 (decimal),
+// 'A' (character); returns false when the text is not a valid 16-bit value
+bool CMainWindow::ParseWordText(const QString& strText, uint16_t& wValue) {
+    QString str = strText.trimmed();
+    if (str.isEmpty()) return false;
+
+    // character constant 'A' or 'AB'? -> take the first character's code
+    if (str.size() >= 3 && str.startsWith('\'') && str.endsWith('\'')) {
+        const QString strInner = str.mid(1, str.size() - 2);
+        if (!strInner.isEmpty()) {
+            wValue = (uint16_t)strInner.at(0).unicode();
+            return true;
+        }
+        return false;
+    }
+
+    bool bOk = false;
+    if (str.startsWith('#')) {
+        // CASL hex literal: #41
+        wValue = (uint16_t)str.mid(1).toUShort(&bOk, 16);
+    } else if (str.endsWith('h', Qt::CaseInsensitive) && str.size() > 1) {
+        // 41h hex suffix
+        wValue = (uint16_t)str.left(str.size() - 1).toUShort(&bOk, 16);
+    } else if (str.contains(QRegularExpression("^[0-9A-Fa-f]{3,4}$"))) {
+        // 3-4 hex digits (watch cells display 0041 style)
+        wValue = (uint16_t)str.toUShort(&bOk, 16);
+    } else {
+        // decimal, possibly negative (stored as 16-bit two's complement)
+        const int nVal = str.toInt(&bOk, 10);
+        if (bOk) wValue = (uint16_t)(int16_t)nVal;
+    }
+    return bOk;
+}
+
+void CMainWindow::OnMemoryEdit(int nAddress, const QString& strText) {
+    uint16_t wValue = 0;
+    if (!ParseWordText(strText, wValue)) {
+        m_plblStatus->setText(
+            QString("无法识别的数值“%1”（可用：0041、#41、65、-1、'A'）")
+                .arg(strText));
+        return;
+    }
+    if (!m_bAssembledOk) return;
+    m_pRunner->WriteMemoryWord(nAddress, wValue);
+    m_plblStatus->setText(QString("已修改内存 [%1] = %2")
+                              .arg(nAddress, 4, 16, QChar('0'))
+                              .arg(wValue, 4, 16, QChar('0'))
+                              .toUpper());
+}
+
 // ---------------------------------------------------------------------------
 // runner events
 // ---------------------------------------------------------------------------
@@ -464,6 +520,7 @@ void CMainWindow::OnStateChanged(const casl::CMachineState& state) {
     std::vector<uint16_t> arrWords;
     m_pRunner->CopyMemory(arrWords);
     m_pMemoryPanel->UpdateMemory(arrWords, state.m_wPr);
+    m_pSymbolsPanel->UpdateValues(arrWords);
 
     int nLine = LineForAddress((int)state.m_wPr);
     m_pEditor->HighlightLine(nLine);

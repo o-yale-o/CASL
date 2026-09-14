@@ -29,6 +29,7 @@ public:
     CMachineRunner* GetRunnerForTest() const;
     CRegistersPanel* GetRegistersPanelForTest() const { return m_pRegistersPanel; }
     CCodeEditor* GetEditorForTest() const { return m_pEditor; }
+    CSymbolsPanel* GetSymbolsPanelForTest() const { return m_pSymbolsPanel; }
     void SetSourceForTest(const QString& strText);
     void TriggerAssembleForTest() { OnAssemble(); }
     void TriggerStepForTest() { OnStep(); }
@@ -36,6 +37,10 @@ public:
     QAction* GetStepActionForTest() const { return m_pactStep; }
     QString MakeTooltipTextForTest(const QString& strWord) const {
         return MakeTooltipText(strWord);
+    }
+    // parse a watch edit (hex/#hex/decimal/'c'); used by tests
+    static bool ParseWordTextForTest(const QString& strText, uint16_t& wValue) {
+        return ParseWordText(strText, wValue);
     }
 
 protected:
@@ -61,6 +66,9 @@ private slots:
     void OnErrorSelected(int nLine);
     void OnBreakpointsChanged();
     void OnSampleMenu();
+    // watch/memory cell edited: parse text (hex / #hex / decimal / 'c')
+    // and write the word into machine memory
+    void OnMemoryEdit(int nAddress, const QString& strText);
 
 private:
     void CreateActions();
@@ -76,6 +84,8 @@ private:
     QIcon MakeVsIcon(const QString& strKind) const;
     // hovered-word value tooltip (registers / symbols); empty = suppress
     QString MakeTooltipText(const QString& strWord) const;
+    // parse a watch/memory edit into a 16-bit word; false if not recognized
+    static bool ParseWordText(const QString& strText, uint16_t& wValue);
 
     // editor + runner
     CCodeEditor* m_pEditor = nullptr;

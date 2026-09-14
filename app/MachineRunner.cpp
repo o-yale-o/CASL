@@ -148,6 +148,18 @@ void CMachineRunner::CopyMemory(std::vector<uint16_t>& arrWords) const {
     arrWords = m_arrMemSnapshot;
 }
 
+void CMachineRunner::WriteMemoryWord(int nAddress, uint16_t wValue) {
+    {
+        std::lock_guard<std::mutex> lock(m_mtx);
+        if (!m_bLoaded) return;
+        m_pMachine->SetMem(nAddress, (int16_t)wValue);
+        // force-publish so all panels (watch, memory, registers) refresh
+        // immediately with the patched value
+        PublishStateLocked(true);
+    }
+    m_cv.notify_all();
+}
+
 bool CMachineRunner::CheckStepHook(uint16_t wPr) {
     // called from the machine (worker thread) before each instruction
     std::lock_guard<std::mutex> lock(m_mtx);

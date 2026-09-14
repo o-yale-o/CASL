@@ -21,6 +21,8 @@
 #include <QTimer>
 #include <QThread>
 
+#include <vector>
+
 #include <cstdio>
 
 using casl::ERunState;
@@ -191,6 +193,62 @@ int main(int argc, char** argv) {
           "valid program recompiled and loaded");
     Check(wnd.GetRunActionForTest()->isEnabled(),
           "gating: run re-enabled after clean recompile");
+
+    // ---- watch panel: live values + runtime editing (VC6 style) ----
+    wnd.SetSourceForTest(
+        "MAIN    START\n"
+        "        OUT   MSG,LNG\n"
+        "        EXIT\n"
+        "MSG     DC    'HELLO, CASL!'\n"
+        "LNG     DC    13\n"
+        "        END\n");
+    wnd.TriggerAssembleForTest();
+    Check(Pump([&] { return wnd.GetRunnerForTest()->GetSnapshot().m_eState ==
+                           ERunState::stReady; },
+               3000),
+          "watch program compiled and loaded");
+    CSymbolsPanel* pSymbols = wnd.GetSymbolsPanelForTest();
+    QCoreApplication::processEvents();
+    // find the MSG row: column 0 = name
+    int nMsgRow = -1, nLngRow = -1;
+    for (int i = 0; i < pSymbols->GetRowCountForTest(); ++i) {
+        if (pSymbols->GetCellTextForTest(i, 0) == "MSG") nMsgRow = i;
+        if (pSymbols->GetCellTextForTest(i, 0) == "LNG") nLngRow = i;
+    }
+    Check(nMsgRow >= 0 && nLngRow >= 0, "watch: MSG and LNG rows exist");
+    Check(pSymbols->GetCellTextForTest(nMsgRow, 2).startsWith("0048"),
+          "watch: MSG shows first char 'H' = 0048");
+    Check(pSymbols->GetCellTextForTest(nLngRow, 2).startsWith("000D"),
+          "watch: LNG shows 13 = 000D");
+    // runtime edit via the watch panel: MSG <- 0051 ('Q')
+    pSymbols->EditValueForTest(nMsgRow, "0051");
+    Check(Pump([&] {
+              std::vector<uint16_t> arrWords;
+              wnd.GetRunnerForTest()->CopyMemory(arrWords);
+              // MSG address from the watch row's address column
+              bool bOk = false;
+              int nAddr = pSymbols->GetCellTextForTest(nMsgRow, 1)
+                              .toInt(&bOk, 16);
+              return bOk && arrWords[(size_t)nAddr] == 0x0051;
+          },
+          3000),
+          "watch: editing MSG to 0051 patches machine memory");
+    // decimal and negative parsing
+    uint16_t w = 0;
+    Check(CMainWindow::ParseWordTextForTest("65", w) && w == 0x0041,
+          "parse: decimal 65 -> 0041");
+    Check(CMainWindow::ParseWordTextForTest("-1", w) && w == 0xFFFF,
+          "parse: decimal -1 -> FFFF");
+    Check(CMainWindow::ParseWordTextForTest("#FF", w) && w == 0x00FF,
+          "parse: #FF -> 00FF");
+    Check(CMainWindow::ParseWordTextForTest("0041", w) && w == 0x0041,
+          "parse: hex 0041 -> 0041");
+    Check(CMainWindow::ParseWordTextForTest("'A'", w) && w == 0x0041,
+          "parse: 'A' -> 0041");
+    Check(CMainWindow::ParseWordTextForTest("'AB'", w) && w == 0x0041,
+          "parse: 'AB' takes first char -> 0041");
+    Check(!CMainWindow::ParseWordTextForTest("xyz", w),
+          "parse: junk rejected");
 
     std::printf("\n%d passed, %d failed\n", s_nPassed, s_nFailed);
     return s_nFailed == 0 ? 0 : 1;

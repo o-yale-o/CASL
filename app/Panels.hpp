@@ -50,27 +50,46 @@ public:
                       uint16_t wHighlightAddr);
     void Clear();
 
+signals:
+    // the user edited the cell at nAddress (address of the word)
+    void WordEditRequested(int nAddress, const QString& strText);
+
 private:
     void Rebuild();
     QSpinBox* m_pspinBase = nullptr;
     QTableWidget* m_ptable = nullptr;
     int m_nBase = 0;
     uint16_t m_wHighlightAddr = 0xFFFF;
+    bool m_bUpdating = false;
     static const int WORDS_PER_ROW = 8;
     static const int ROWS = 8;
 };
 
 // ---------------------------------------------------------------------------
-// symbol table
+// symbol table / watch window (VC6 style: name, address, live value; the
+// value column is editable at runtime)
 // ---------------------------------------------------------------------------
 class CSymbolsPanel : public QWidget {
     Q_OBJECT
 public:
     explicit CSymbolsPanel(QWidget* pParent = nullptr);
+    // (re)builds the row set after assemble (name + address columns)
     void UpdateSymbols(const std::map<std::string, int>& mapSymbols);
+    // refreshes the value columns from the latest memory snapshot
+    void UpdateValues(const std::vector<uint16_t>& arrWords);
+
+    // test hooks
+    QString GetCellTextForTest(int nRow, int nCol) const;
+    int GetRowCountForTest() const { return m_ptable->rowCount(); }
+    void EditValueForTest(int nRow, const QString& strText); // simulate edit
+
+signals:
+    // the user edited the value cell of the symbol at nAddress
+    void ValueEditRequested(int nAddress, const QString& strText);
 
 private:
     QTableWidget* m_ptable = nullptr;
+    bool m_bUpdating = false; // suppress itemChanged during refresh
 };
 
 // ---------------------------------------------------------------------------

@@ -35,6 +35,10 @@ public:
     // UI-thread inspection: read cached snapshots (internally locked).
     casl::CMachineState GetSnapshot() const;
     void CopyMemory(std::vector<uint16_t>& arrWords) const;
+    // runtime memory patch (watch/memory edit): writes one word into the
+    // live machine (if loaded) and the published snapshot, then forces a
+    // StateChanged publish so panels refresh immediately
+    void WriteMemoryWord(int nAddress, uint16_t wValue);
 
 public slots:
     void StartRun();                    // resume / start continuous run
