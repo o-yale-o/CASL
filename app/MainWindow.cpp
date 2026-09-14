@@ -494,6 +494,16 @@ void CMainWindow::OnHelpCommands() {
     ShowHelpDialog(m_pEditor->CurrentWord());
 }
 
+// ---------------------------------------------------------------------------
+// test hooks
+// ---------------------------------------------------------------------------
+
+CMachineRunner* CMainWindow::GetRunnerForTest() const { return m_pRunner; }
+
+void CMainWindow::SetSourceForTest(const QString& strText) {
+    m_pEditor->SetSourceText(strText);
+}
+
 void CMainWindow::ShowHelpDialog(const QString& strKeyword) {
     if (!m_pHelpDlg) m_pHelpDlg = new CCommandHelpDialog(this);
     if (!strKeyword.isEmpty()) m_pHelpDlg->LocateCommand(strKeyword);

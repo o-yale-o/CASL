@@ -7,6 +7,8 @@
 
 #include <QMainWindow>
 
+#include <string>
+
 class CCodeEditor;
 class CMachineRunner;
 class CRegistersPanel;
@@ -22,6 +24,13 @@ class CMainWindow : public QMainWindow {
 
 public:
     explicit CMainWindow(QWidget* pParent = nullptr);
+
+    // ---- test hooks (used by tests/test_gui.cpp) ---------------------------
+    CMachineRunner* GetRunnerForTest() const;
+    CRegistersPanel* GetRegistersPanelForTest() const { return m_pRegistersPanel; }
+    void SetSourceForTest(const QString& strText);
+    void TriggerAssembleForTest() { OnAssemble(); }
+    void TriggerStepForTest() { OnStep(); }
 
 protected:
     void closeEvent(QCloseEvent* pEvent) override;

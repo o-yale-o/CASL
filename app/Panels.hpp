@@ -24,6 +24,11 @@ public:
     void UpdateState(const casl::CMachineState& state);
     void Clear();
 
+    // test hook: label text for register n (0..7 = GR0..GR7, 8 = SP, 9 = PR)
+    QString GetRegisterTextForTest(int nIndex) const {
+        return m_arrRegLabels[nIndex]->text();
+    }
+
 private:
     void AddRow(const QString& strName, int nRow);
     QLabel* m_arrRegLabels[10]; // GR0..GR7, SP, PR

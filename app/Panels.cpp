@@ -24,6 +24,14 @@ CRegistersPanel::CRegistersPanel(QWidget* pParent) : QWidget(pParent) {
     pGrid->setColumnStretch(2, 1);
     pGrid->setColumnStretch(4, 1);
 
+    // The value labels pin a light background, so the text color must be
+    // pinned too: on dark-system themes the palette text is light and the
+    // values would become white-on-white (invisible, "empty panel" bug).
+    const QString strValueStyle =
+        "font-family: Consolas, monospace;"
+        "background: #F4F4F4; color: #202020; padding: 1px 6px;"
+        "border: 1px solid #C8C8C8;";
+
     for (int i = 0; i < 10; ++i) {
         QString strName = i < 8 ? QString("GR%1").arg(i)
                                 : (i == 8 ? "SP" : "PR");
@@ -33,8 +41,7 @@ CRegistersPanel::CRegistersPanel(QWidget* pParent) : QWidget(pParent) {
         plblName->setStyleSheet("font-weight: bold;");
         auto* plblValue = new QLabel("0000", this);
         m_arrRegLabels[i] = plblValue;
-        plblValue->setStyleSheet(
-            "font-family: Consolas, monospace; background: #F4F4F4; padding: 1px 6px;");
+        plblValue->setStyleSheet(strValueStyle);
         pGrid->addWidget(plblName, nRow, nCol);
         pGrid->addWidget(plblValue, nRow, nCol + 1);
     }
@@ -44,7 +51,11 @@ CRegistersPanel::CRegistersPanel(QWidget* pParent) : QWidget(pParent) {
     pFlags->setContentsMargins(0, 0, 0, 0);
     auto MakeFlag = [&](const QString& strName, QLabel** pplbl) {
         auto* plblName = new QLabel(strName, pFlagsRow);
+        plblName->setStyleSheet("font-weight: bold;");
         auto* plblValue = new QLabel("0", pFlagsRow);
+        plblValue->setStyleSheet("font-family: Consolas, monospace;"
+                                 "background: #F4F4F4; color: #202020;"
+                                 "padding: 1px 6px; border: 1px solid #C8C8C8;");
         *pplbl = plblValue;
         pFlags->addWidget(plblName);
         pFlags->addWidget(plblValue);
@@ -55,7 +66,11 @@ CRegistersPanel::CRegistersPanel(QWidget* pParent) : QWidget(pParent) {
     MakeFlag("ZF", &m_plblZF);
     pFlags->addStretch(1);
     auto* plblStepsName = new QLabel("STEPS", pFlagsRow);
+    plblStepsName->setStyleSheet("font-weight: bold;");
     m_plblSteps = new QLabel("0", pFlagsRow);
+    m_plblSteps->setStyleSheet("font-family: Consolas, monospace;"
+                               "background: #F4F4F4; color: #202020;"
+                               "padding: 1px 6px; border: 1px solid #C8C8C8;");
     pFlags->addWidget(plblStepsName);
     pFlags->addWidget(m_plblSteps);
     pGrid->addWidget(pFlagsRow, 5, 0, 1, 4);

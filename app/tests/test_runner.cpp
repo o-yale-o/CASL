@@ -31,6 +31,20 @@ void Check(bool bOk, const char* pszWhat) {
     }
 }
 
+// counts queued StateChanged deliveries (verifies signal transport, not just
+// the polling snapshot path)
+class CStateCounter : public QObject {
+    Q_OBJECT
+public:
+    int m_nCount = 0;
+    casl::CMachineState m_stateLast{};
+public slots:
+    void OnStateChanged(const casl::CMachineState& state) {
+        ++m_nCount;
+        m_stateLast = state;
+    }
+};
+
 // Pump the event loop until pred() holds or the timeout elapses.
 template <typename TPred>
 bool Pump(TPred pred, int nTimeoutMs) {
@@ -69,10 +83,16 @@ int main(int argc, char** argv) {
     Check(nBpAddr == 2, "breakpoint address is word 2");
 
     CMachineRunner runner;
+    CStateCounter counter; // lives in the main thread like the real UI
+    QObject::connect(&runner, &CMachineRunner::StateChanged, &counter,
+                     &CStateCounter::OnStateChanged);
     runner.LoadProgram(result);
     Check(Pump([&] { return runner.GetSnapshot().m_eState == ERunState::stReady; },
                2000),
           "load -> stReady published");
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
+    std::printf("  [info] deliveries after load: %d\n", counter.m_nCount);
+    Check(counter.m_nCount >= 1, "StateChanged signal delivered (queued)");
 
     runner.SetBreakpoints(QSet<int>{nBpAddr});
     runner.StartRun();
@@ -118,7 +138,14 @@ int main(int argc, char** argv) {
                2000),
           "continue without breakpoints -> stHalted");
     Check(runner.GetSnapshot().m_arrGr[0] == 3, "GR0 == 3 at exit");
+    std::printf("  [info] StateChanged deliveries total: %d (last state=%d)\n",
+                counter.m_nCount, (int)counter.m_stateLast.m_eState);
+    Check(counter.m_nCount >= 5, "StateChanged delivered throughout stepping");
+    Check(counter.m_stateLast.m_eState == ERunState::stHalted,
+          "final delivered state is stHalted");
 
     std::printf("\n%d passed, %d failed\n", s_nPassed, s_nFailed);
     return s_nFailed == 0 ? 0 : 1;
 }
+
+#include "test_runner.moc"

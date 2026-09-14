@@ -127,3 +127,23 @@ else()
     target_compile_options(test_runner PRIVATE -Wall -Wextra)
 endif()
 add_test(NAME runner COMMAND test_runner)
+
+# Offscreen GUI test: drives the real main window (panels, docks, actions)
+# through assemble + single-step. Requires QT_QPA_PLATFORM=offscreen.
+qt_add_executable(test_gui tests/test_gui.cpp
+    MainWindow.cpp
+    Panels.cpp
+    CodeEditor.cpp
+    CommandHelp.cpp
+    MachineRunner.cpp)
+target_include_directories(test_gui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(test_gui PRIVATE Qt6::Widgets casl::core)
+if(CASL_HAVE_QSCINTILLA)
+    target_compile_definitions(test_gui PRIVATE CASL_HAVE_QSCINTILLA QSCINTILLA_DLL)
+    target_link_libraries(test_gui PRIVATE ${CASL_QSCINTILLA_TARGET})
+endif()
+if(MSVC)
+    target_compile_options(test_gui PRIVATE /W3 /permissive- /EHsc)
+else()
+    target_compile_options(test_gui PRIVATE -Wall -Wextra)
+endif()
