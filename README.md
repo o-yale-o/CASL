@@ -11,6 +11,10 @@
 | :---: | :---: |
 | ![主界面](docs/main-window.png) | ![帮助](docs/help-dialog.png) |
 
+## 下载
+
+到 [Releases](../../releases) 页下载最新免安装包（如 `CASL-Studio-v1.0.0-win64.zip`），解压后直接运行 `CASLStudio.exe`，无需安装。包内含 Qt 运行库与 `vc_redist.x64.exe`（若启动报缺 DLL，先运行它安装 VC 运行时）。
+
 ## 功能一览
 
 ### 编辑器
