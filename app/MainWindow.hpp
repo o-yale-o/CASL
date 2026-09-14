@@ -32,6 +32,8 @@ public:
     void SetSourceForTest(const QString& strText);
     void TriggerAssembleForTest() { OnAssemble(); }
     void TriggerStepForTest() { OnStep(); }
+    QAction* GetRunActionForTest() const { return m_pactRun; }
+    QAction* GetStepActionForTest() const { return m_pactStep; }
     QString MakeTooltipTextForTest(const QString& strWord) const {
         return MakeTooltipText(strWord);
     }
@@ -64,6 +66,10 @@ private:
     void CreateActions();
     void CreatePanels();
     void UpdateActions(const casl::CMachineState& state);
+    // enable/disable the debug actions (run/step/...); used by assemble
+    // success/failure and file new/open so they only work after a
+    // syntax-clean compile
+    void SetDebugActionsEnabled(bool bEnabled);
     bool ConfirmSaveChanges();
     int LineForAddress(int nAddress) const;
     void PushBreakpointsToRunner();

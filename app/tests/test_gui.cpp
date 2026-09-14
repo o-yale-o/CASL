@@ -167,6 +167,31 @@ int main(int argc, char** argv) {
     QCoreApplication::processEvents();
     Check(!pFindBar->isVisible(), "find bar hides on close");
 
+    // ---- debug-button gating: only usable after a clean compile ----
+    Check(wnd.GetRunActionForTest()->isEnabled(),
+          "gating: run enabled after successful compile");
+    // a source file with a syntax error disables the debug buttons
+    wnd.SetSourceForTest("MAIN    START\n"
+                         "        BOGUS GR0\n"
+                         "        END\n");
+    wnd.TriggerAssembleForTest();
+    QCoreApplication::processEvents();
+    Check(!wnd.GetRunActionForTest()->isEnabled(),
+          "gating: run disabled after syntax error");
+    Check(!wnd.GetStepActionForTest()->isEnabled(),
+          "gating: step disabled after syntax error");
+    // recompiling a valid program re-enables them
+    wnd.SetSourceForTest("MAIN    START\n"
+                         "        EXIT\n"
+                         "        END\n");
+    wnd.TriggerAssembleForTest();
+    Check(Pump([&] { return wnd.GetRunnerForTest()->GetSnapshot().m_eState ==
+                           ERunState::stReady; },
+               3000),
+          "valid program recompiled and loaded");
+    Check(wnd.GetRunActionForTest()->isEnabled(),
+          "gating: run re-enabled after clean recompile");
+
     std::printf("\n%d passed, %d failed\n", s_nPassed, s_nFailed);
     return s_nFailed == 0 ? 0 : 1;
 }

@@ -567,10 +567,13 @@ CCodeEditor::CCodeEditor(QWidget* pParent) : CEditorBase(pParent) {
     setMarginsForegroundColor(th.m_clrMarginText);
     setEdgeMode(QsciScintilla::EdgeNone);
 
-    // margin 1: line numbers; margin 2: breakpoint / execution markers
+    // margin 1: line numbers; margin 2: breakpoint / execution markers.
+    // Both margins are click-sensitive: clicking the line number or the
+    // marker gutter toggles a breakpoint on that line (VS style).
     setMarginLineNumbers(1, true);
     setMarginType(2, QsciScintilla::SymbolMargin);
     setMarginWidth(2, 20);
+    setMarginSensitivity(1, true);
     setMarginSensitivity(2, true);
     setMarginsFont(fontEditor);
     markerDefine(QsciScintilla::Circle, 0);    // breakpoint

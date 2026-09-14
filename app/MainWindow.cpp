@@ -147,37 +147,57 @@ void CMainWindow::CreateActions() {
 
     m_pactNew = new QAction("新建", this);
     m_pactNew->setShortcut(QKeySequence::New);
+    m_pactNew->setToolTip("新建空白源程序 (Ctrl+N)");
     m_pactOpen = new QAction("打开...", this);
     m_pactOpen->setShortcut(QKeySequence::Open);
+    m_pactOpen->setToolTip("打开 .casl 源程序 (Ctrl+O)");
     m_pactSave = new QAction("保存", this);
     m_pactSave->setShortcut(QKeySequence::Save);
-    m_pactAssemble = new QAction("汇编", this);
+    m_pactSave->setToolTip("保存源程序 (Ctrl+S)");
+    m_pactAssemble = new QAction("编译", this);
     m_pactAssemble->setShortcut(Qt::Key_F7);            // VS: 生成 F7
     m_pactAssemble->setIcon(MakeVsIcon("assemble"));
+    m_pactAssemble->setToolTip(
+        "编译（汇编）CASL 源程序，检查语法错误 (F7)。语法通过后调试按钮才可用");
     m_pactResetRun = new QAction("重新调试", this);
     m_pactResetRun->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F5));
     m_pactResetRun->setIcon(MakeVsIcon("restart"));
+    m_pactResetRun->setToolTip(
+        "重新调试 (Ctrl+Shift+F5)：复位寄存器和内存后从头运行，"
+        "遇到第一个断点暂停（相当于“运行到断点”）");
     m_pactRun = new QAction("开始调试 / 继续", this);
     m_pactRun->setShortcut(Qt::Key_F5);                 // VS: F5
     m_pactRun->setIcon(MakeVsIcon("run"));
+    m_pactRun->setToolTip(
+        "开始调试 / 继续 (F5)：从当前位置运行，遇到断点暂停，"
+        "再次按下继续运行");
     m_pactRunNoDebug = new QAction("开始执行(不调试)", this);
     m_pactRunNoDebug->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_F5));
     m_pactRunNoDebug->setIcon(MakeVsIcon("run"));
+    m_pactRunNoDebug->setToolTip(
+        "开始执行(不调试) (Ctrl+F5)：复位后一口气运行到结束，忽略断点");
     m_pactStep = new QAction("逐过程", this);
     m_pactStep->setShortcut(Qt::Key_F10);               // VS: F10
     m_pactStep->setIcon(MakeVsIcon("stepover"));
+    m_pactStep->setToolTip("逐过程 (F10)：执行一条指令后暂停");
     m_pactStepInto = new QAction("逐语句", this);
     m_pactStepInto->setShortcut(Qt::Key_F11);           // VS: F11
     m_pactStepInto->setIcon(MakeVsIcon("stepinto"));
+    m_pactStepInto->setToolTip("逐语句 (F11)：执行一条指令后暂停");
     m_pactStepOut = new QAction("跳出", this);
     m_pactStepOut->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F11));
     m_pactStepOut->setIcon(MakeVsIcon("stepout"));
+    m_pactStepOut->setToolTip("跳出 (Shift+F11)：运行到当前子程序返回后暂停");
     m_pactStop = new QAction("停止调试", this);
     m_pactStop->setShortcut(QKeySequence(Qt::SHIFT | Qt::Key_F5)); // VS: Shift+F5
     m_pactStop->setIcon(MakeVsIcon("stop"));
+    m_pactStop->setToolTip("停止调试 (Shift+F5)：中断当前运行的程序");
     m_pactBreakpoint = new QAction("切换断点", this);
     m_pactBreakpoint->setShortcut(Qt::Key_F9);          // VS: F9
     m_pactBreakpoint->setIcon(MakeVsIcon("breakpoint"));
+    m_pactBreakpoint->setToolTip(
+        "切换断点 (F9)：在光标行设置/取消断点；"
+        "也可以直接点击编辑器左侧行号区");
 
     connect(m_pactNew, &QAction::triggered, this, &CMainWindow::OnFileNew);
     connect(m_pactOpen, &QAction::triggered, this, &CMainWindow::OnFileOpen);
@@ -262,7 +282,6 @@ void CMainWindow::CreateActions() {
     m_pactStop->setEnabled(false);
     m_pactResetRun->setEnabled(false);
 }
-
 void CMainWindow::CreatePanels() {
     auto MakeDock = [this](const QString& strTitle, Qt::DockWidgetArea eArea,
                            QWidget* pWidget) {
@@ -287,7 +306,16 @@ void CMainWindow::CreatePanels() {
     MakeDock("输入 / 输出", Qt::BottomDockWidgetArea, m_pConsolePanel);
 
     m_pErrorsPanel = new CErrorsPanel(this);
-    MakeDock("汇编信息", Qt::BottomDockWidgetArea, m_pErrorsPanel);
+    MakeDock("编译信息", Qt::BottomDockWidgetArea, m_pErrorsPanel);
+}
+
+void CMainWindow::SetDebugActionsEnabled(bool bEnabled) {
+    m_pactRun->setEnabled(bEnabled);
+    m_pactRunNoDebug->setEnabled(bEnabled);
+    m_pactStep->setEnabled(bEnabled);
+    m_pactStepInto->setEnabled(bEnabled);
+    m_pactStepOut->setEnabled(bEnabled);
+    m_pactResetRun->setEnabled(bEnabled);
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +328,14 @@ void CMainWindow::OnFileNew() {
     m_pEditor->SetSourceText("");
     m_pConsolePanel->ClearOutput();
     setWindowTitle("CASL Studio - 未命名");
+    // a blank file has no valid program: debug buttons stay disabled until
+    // the next successful compile
+    m_bAssembledOk = false;
+    SetDebugActionsEnabled(false);
+    m_pErrorsPanel->UpdateErrors({});
+    m_pSymbolsPanel->UpdateSymbols({});
+    m_pEditor->HighlightLine(-1);
+    m_plblStatus->setText("新建：请输入源程序后按 F7 编译");
 }
 
 void CMainWindow::OnFileOpen() {
@@ -366,23 +402,13 @@ void CMainWindow::OnAssemble() {
     m_pSymbolsPanel->UpdateSymbols(m_result.m_mapSymbols);
 
     if (!m_result.m_bOk) {
-        m_plblStatus->setText("汇编失败，请查看“汇编信息”面板");
-        m_pactRun->setEnabled(false);
-        m_pactRunNoDebug->setEnabled(false);
-        m_pactStep->setEnabled(false);
-        m_pactStepInto->setEnabled(false);
-        m_pactStepOut->setEnabled(false);
-        m_pactResetRun->setEnabled(false);
+        m_plblStatus->setText("编译失败，请查看“编译信息”面板");
+        SetDebugActionsEnabled(false);
         return;
     }
     m_pRunner->LoadProgram(m_result);
-    m_pactRun->setEnabled(true);
-    m_pactRunNoDebug->setEnabled(true);
-    m_pactStep->setEnabled(true);
-    m_pactStepInto->setEnabled(true);
-    m_pactStepOut->setEnabled(true);
-    m_pactResetRun->setEnabled(true);
-    m_plblStatus->setText(QString("汇编成功：%1 个字，入口 0x%2")
+    SetDebugActionsEnabled(true);
+    m_plblStatus->setText(QString("编译成功：%1 个字，入口 0x%2")
                               .arg(m_result.m_arrWords.size())
                               .arg(m_result.m_nStartAddress, 4, 16, QChar('0')));
     PushBreakpointsToRunner();
