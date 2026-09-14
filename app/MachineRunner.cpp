@@ -97,6 +97,11 @@ void CMachineRunner::StepOnce() {
         if (!m_bLoaded) return;
         m_bStopRequested = false;
         m_bStepPending = true;
+        // The step hook fires BEFORE the instruction with the current PR. If
+        // we are standing on a breakpoint, it would refuse to execute (that
+        // is what paused us here) and F10 would appear dead. Ignore the
+        // breakpoint at the current PC exactly once, like VS single-stepping.
+        m_bIgnoreBreakOnce = true;
     }
     m_cv.notify_all();
 }
@@ -262,13 +267,24 @@ void CMachineRunner::WorkerLoop() {
                 m_bRunning = false;
                 bFinished = true;
             } else if (m_bStopRequested) {
+                // manual stop (Shift+F5): show as paused, not "busy", so the
+                // debug actions re-enable immediately
+                m_pMachine->SetStateForHost(casl::ERunState::stPaused);
                 m_bRunning = false;
                 m_bStopRequested = false;
                 bFinished = true;
             } else if (!bStepped) {
                 // breakpoint hit: pause, but stay "loaded and resumable"
+                m_pMachine->SetStateForHost(casl::ERunState::stPaused);
                 m_bRunning = false;
             }
+            // Any pause with the run flag down (single step finished,
+            // breakpoint hit, manual stop) must publish stPaused, never a
+            // stale stRunning: the UI treats stRunning as busy and would
+            // grey out the debug actions after the very first F10.
+            if (!m_bRunning &&
+                m_pMachine->GetState() == casl::ERunState::stRunning)
+                m_pMachine->SetStateForHost(casl::ERunState::stPaused);
             // throttle while running; force refresh on pause/finish/single step
             PublishStateLocked(!m_bRunning);
             if (bFinished) {

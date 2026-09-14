@@ -116,3 +116,14 @@ add_custom_command(TARGET CASLStudio POST_BUILD
         "${CMAKE_SOURCE_DIR}/samples" "$<TARGET_FILE_DIR:CASLStudio>/samples"
     COMMENT "Copying sample programs"
 )
+
+# Headless regression test for the debug runner (breakpoint pause + F10).
+qt_add_executable(test_runner tests/test_runner.cpp MachineRunner.cpp)
+target_include_directories(test_runner PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(test_runner PRIVATE Qt6::Core casl::core)
+if(MSVC)
+    target_compile_options(test_runner PRIVATE /W3 /permissive- /EHsc)
+else()
+    target_compile_options(test_runner PRIVATE -Wall -Wextra)
+endif()
+add_test(NAME runner COMMAND test_runner)
