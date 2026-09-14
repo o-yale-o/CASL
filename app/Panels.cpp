@@ -231,10 +231,17 @@ CConsolePanel::CConsolePanel(QWidget* pParent) : QWidget(pParent) {
     auto* pBottom = new QWidget(this);
     auto* pBottomLayout = new QHBoxLayout(pBottom);
     pBottomLayout->setContentsMargins(0, 0, 0, 0);
-    m_plblHint = new QLabel("input (IN):", pBottom);
+    m_plblHint = new QLabel("程序输入 (IN)", pBottom);
     m_peditInput = new QLineEdit(pBottom);
     m_peditInput->setFont(QFont("Consolas", 10));
-    m_pbtnSend = new QPushButton("send", pBottom);
+    m_peditInput->setPlaceholderText(
+        "程序执行 IN 指令时，在此输入一行字符并回车（不是改内存的入口）");
+    m_peditInput->setToolTip(
+        "当程序运行到 IN buf,len 指令暂停等待输入时，在这里输入一行字符：\n"
+        "字符逐个写入内存 buf 开始的单元（每个字符占一个字），\n"
+        "实际个数写入 len 处的一个字。平时（未在等待输入）此框不可用。\n"
+        "想修改程序里的数据（如 DC 定义的字符串），请直接改源程序后按 F7 重新编译。");
+    m_pbtnSend = new QPushButton("送入", pBottom);
     pBottomLayout->addWidget(m_plblHint);
     pBottomLayout->addWidget(m_peditInput, 1);
     pBottomLayout->addWidget(m_pbtnSend);
@@ -246,6 +253,7 @@ CConsolePanel::CConsolePanel(QWidget* pParent) : QWidget(pParent) {
     });
     connect(m_peditInput, &QLineEdit::returnPressed, m_pbtnSend,
             &QPushButton::click);
+    MarkWaitingForInput(false); // start disabled: only IN unlocks it
 }
 
 void CConsolePanel::AppendOutput(const QString& strText) {
@@ -259,9 +267,17 @@ void CConsolePanel::ClearOutput() {
 }
 
 void CConsolePanel::MarkWaitingForInput(bool bWaiting) {
-    m_plblHint->setText(bWaiting ? "input (IN) >" : "input (IN):");
+    m_plblHint->setText(bWaiting ? "程序输入 (IN) 等待中 >" : "程序输入 (IN)");
     m_plblHint->setStyleSheet(bWaiting ? "color: #B00; font-weight: bold;" : "");
-    if (bWaiting) m_peditInput->setFocus();
+    m_peditInput->setEnabled(bWaiting);
+    m_pbtnSend->setEnabled(bWaiting);
+    if (bWaiting) {
+        m_peditInput->setFocus();
+        m_peditInput->setPlaceholderText("输入一行字符后回车");
+    } else {
+        m_peditInput->setPlaceholderText(
+            "程序执行 IN 指令时，在此输入一行字符并回车（不是改内存的入口）");
+    }
 }
 
 // ---------------------------------------------------------------------------
