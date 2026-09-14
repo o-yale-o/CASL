@@ -6,6 +6,7 @@
 #include <QPalette>
 #include <QRegularExpression>
 #include <QScrollBar>
+#include <QToolTip>
 
 #include <cctype>
 #include <string>
@@ -525,6 +526,15 @@ void CCodeEditor::PaintMargin(CLineNumberArea* pArea, QPaintEvent* pEvent) {
 
 void CCodeEditor::OnMarginClicked(const QPoint&) {}
 
+void CCodeEditor::mouseMoveEvent(QMouseEvent* pEvent) {
+    QPlainTextEdit::mouseMoveEvent(pEvent);
+    if (m_fnTooltip) {
+        QTextCursor cur = cursorForPosition(pEvent->pos());
+        cur.select(QTextCursor::WordUnderCursor);
+        ShowHoverTooltip(cur.selectedText(), pEvent->globalPos());
+    }
+}
+
 #endif // !CASL_HAVE_QSCINTILLA
 
 // ---------------------------------------------------------------------------
@@ -574,6 +584,17 @@ CCodeEditor::CCodeEditor(QWidget* pParent) : CEditorBase(pParent) {
             [this](int, int nLine, Qt::KeyboardModifiers) {
                 ToggleBreakpoint(nLine + 1);
             });
+    // register / symbol value tooltips after a short hover
+    SendScintilla(QsciScintillaBase::SCI_SETMOUSEDWELLTIME, 350);
+    connect(this, &QsciScintillaBase::SCN_DWELLSTART, this,
+            [this](int, int x, int y) {
+                ShowHoverTooltip(wordAtPoint(QPoint(x, y)),
+                                 mapToGlobal(QPoint(x, y)));
+            });
+    connect(this, &QsciScintillaBase::SCN_DWELLEND, this, [this](int, int, int) {
+        m_strLastHoverWord.clear();
+        QToolTip::hideText();
+    });
 }
 
 #endif
@@ -581,6 +602,20 @@ CCodeEditor::CCodeEditor(QWidget* pParent) : CEditorBase(pParent) {
 // ---------------------------------------------------------------------------
 // common API
 // ---------------------------------------------------------------------------
+
+void CCodeEditor::ShowHoverTooltip(const QString& strWord,
+                                   const QPoint& ptGlobal) {
+    if (!m_fnTooltip) return;
+    // suppress flicker: same word -> tooltip stays as-is (Qt keeps it shown)
+    if (strWord == m_strLastHoverWord) return;
+    m_strLastHoverWord = strWord;
+    const QString strText = strWord.isEmpty() ? QString() : m_fnTooltip(strWord);
+    if (strText.isEmpty()) {
+        QToolTip::hideText();
+        return;
+    }
+    QToolTip::showText(ptGlobal, strText, this);
+}
 
 void CCodeEditor::SetSourceText(const QString& strText) {
 #ifdef CASL_HAVE_QSCINTILLA

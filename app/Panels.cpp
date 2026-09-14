@@ -39,6 +39,8 @@ CRegistersPanel::CRegistersPanel(QWidget* pParent) : QWidget(pParent) {
         int nCol = (i / 5) * 2;
         auto* plblName = new QLabel(strName, this);
         plblName->setStyleSheet("font-weight: bold;");
+        // right-align names so they hug the value boxes (esp. SP/PR vs GR5-7)
+        plblName->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         auto* plblValue = new QLabel("0000", this);
         m_arrRegLabels[i] = plblValue;
         plblValue->setStyleSheet(strValueStyle);

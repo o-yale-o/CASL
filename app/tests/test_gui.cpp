@@ -103,6 +103,19 @@ int main(int argc, char** argv) {
                2000),
           "third step (EXIT) halts cleanly");
 
+    // hover tooltip text: register + symbol lookups
+    Check(wnd.MakeTooltipTextForTest("GR0") ==
+              QString("GR0 = 0x1234 (4660)"),
+          "tooltip: GR0 shows value");
+    Check(wnd.MakeTooltipTextForTest("gr1").startsWith("GR1 = 0x"),
+          "tooltip: lowercase register resolved");
+    Check(wnd.MakeTooltipTextForTest("PR").startsWith("PR = 0x"),
+          "tooltip: PR shows value");
+    Check(wnd.MakeTooltipTextForTest("MAIN").contains("= 0x0000"),
+          "tooltip: symbol MAIN shows address");
+    Check(wnd.MakeTooltipTextForTest("FOO") == QString(),
+          "tooltip: unknown word suppressed");
+
     std::printf("\n%d passed, %d failed\n", s_nPassed, s_nFailed);
     return s_nFailed == 0 ? 0 : 1;
 }

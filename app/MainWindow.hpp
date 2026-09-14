@@ -31,6 +31,9 @@ public:
     void SetSourceForTest(const QString& strText);
     void TriggerAssembleForTest() { OnAssemble(); }
     void TriggerStepForTest() { OnStep(); }
+    QString MakeTooltipTextForTest(const QString& strWord) const {
+        return MakeTooltipText(strWord);
+    }
 
 protected:
     void closeEvent(QCloseEvent* pEvent) override;
@@ -64,6 +67,8 @@ private:
     int LineForAddress(int nAddress) const;
     void PushBreakpointsToRunner();
     QIcon MakeVsIcon(const QString& strKind) const;
+    // hovered-word value tooltip (registers / symbols); empty = suppress
+    QString MakeTooltipText(const QString& strWord) const;
 
     // editor + runner
     CCodeEditor* m_pEditor = nullptr;

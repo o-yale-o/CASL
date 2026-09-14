@@ -7,6 +7,8 @@
 #include <QString>
 #include <QWidget>
 
+#include <functional>
+
 class QString;
 
 // The shared code font (Fixedsys Excelsior 3.01 @12pt with fallbacks).
@@ -36,6 +38,11 @@ class CCodeEditor : public CEditorBase {
 public:
     explicit CCodeEditor(QWidget* pParent = nullptr);
 
+    // tooltip provider: given the hovered word, returns the text to show (an
+    // empty string suppresses the tooltip). Called on the UI thread.
+    using TFnTooltipProvider = std::function<QString(const QString&)>;
+    void SetTooltipProvider(TFnTooltipProvider fn) { m_fnTooltip = fn; }
+
     void SetSourceText(const QString& strText);
     QString GetSourceText() const;
     int CurrentLine() const;               // 1-based cursor line
@@ -51,6 +58,7 @@ signals:
 #ifndef CASL_HAVE_QSCINTILLA
 protected:
     void resizeEvent(QResizeEvent* pEvent) override;
+    void mouseMoveEvent(QMouseEvent* pEvent) override;
 
 private slots:
     void OnUpdateMarginWidth(int nNewBlockCount);
@@ -67,4 +75,8 @@ private:
 private:
     QSet<int> m_setBreakLines; // 1-based source lines with a breakpoint
     int m_nExecLine = -1;      // highlighted execution line (1-based)
+    TFnTooltipProvider m_fnTooltip; // register/symbol value lookup
+    QString m_strLastHoverWord;     // avoid re-showing the same tooltip
+
+    void ShowHoverTooltip(const QString& strWord, const QPoint& ptGlobal);
 };

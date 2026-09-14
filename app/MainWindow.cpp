@@ -54,6 +54,9 @@ CMainWindow::CMainWindow(QWidget* pParent) : QMainWindow(pParent) {
             &CMainWindow::OnErrorSelected);
     connect(m_pEditor, &CCodeEditor::BreakpointsChanged, this,
             &CMainWindow::OnBreakpointsChanged);
+    // hover tooltips: register / symbol values from the latest snapshot
+    m_pEditor->SetTooltipProvider(
+        [this](const QString& strWord) { return MakeTooltipText(strWord); });
 
     // start with a small template
     m_pEditor->SetSourceText(
@@ -487,6 +490,58 @@ void CMainWindow::PushBreakpointsToRunner() {
         }
     }
     m_pRunner->SetBreakpoints(setAddresses);
+}
+
+// ---------------------------------------------------------------------------
+// hover tooltip: register / symbol values from the latest machine snapshot
+// ---------------------------------------------------------------------------
+
+QString CMainWindow::MakeTooltipText(const QString& strWord) const {
+    if (strWord.isEmpty() || !m_bAssembledOk) return QString();
+    const QString strUpper = strWord.toUpper();
+
+    // registers: GR0..GR7, SP, PR
+    if (strUpper.size() == 3 && strUpper.startsWith("GR") &&
+        strUpper[2] >= '0' && strUpper[2] <= '7') {
+        const casl::CMachineState state = m_pRunner->GetSnapshot();
+        const int nReg = strUpper[2].digitValue();
+        const int16_t nVal = state.m_arrGr[nReg];
+        return QString("%1 = 0x%2 (%3)")
+            .arg(strUpper)
+            .arg((uint16_t)nVal, 4, 16, QChar('0'))
+            .arg(nVal);
+    }
+    if (strUpper == "SP" || strUpper == "PR") {
+        const casl::CMachineState state = m_pRunner->GetSnapshot();
+        const uint16_t wVal = (strUpper == "SP") ? state.m_wSp : state.m_wPr;
+        return QString("%1 = 0x%2 (%3)")
+            .arg(strUpper)
+            .arg(wVal, 4, 16, QChar('0'))
+            .arg(wVal);
+    }
+
+    // symbols: try the literal case first, then the upper-case convention
+    auto itSym = m_result.m_mapSymbols.find(strWord.toStdString());
+    if (itSym == m_result.m_mapSymbols.end())
+        itSym = m_result.m_mapSymbols.find(strUpper.toStdString());
+    if (itSym == m_result.m_mapSymbols.end()) return QString();
+
+    const int nAddr = itSym->second;
+    std::vector<uint16_t> arrWords;
+    m_pRunner->CopyMemory(arrWords);
+    const uint16_t wMem = (nAddr >= 0 && (size_t)nAddr < arrWords.size())
+                              ? arrWords[(size_t)nAddr]
+                              : 0;
+    QString strText = QString("%1 = 0x%2 (%3)\n[%1] = 0x%4 (%5)")
+                          .arg(strWord)
+                          .arg((uint16_t)nAddr, 4, 16, QChar('0'))
+                          .arg(nAddr)
+                          .arg(wMem, 4, 16, QChar('0'))
+                          .arg((int16_t)wMem);
+    // printable character constant hint
+    if (wMem >= 0x20 && wMem < 0x7F)
+        strText += QString(" '%1'").arg(QChar(wMem));
+    return strText;
 }
 
 void CMainWindow::OnHelpCommands() {
