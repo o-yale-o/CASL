@@ -1,0 +1,6 @@
+HELLO   START
+        OUT   MSG,LNG
+        EXIT
+MSG     DC    'HELLO CASL'
+LNG     DC    10
+        END

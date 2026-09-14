@@ -1,0 +1,30 @@
+; 十六进制输出：把 NUM(#ABCD) 按 4 位十六进制字符输出（移位+AND 的经典用法）
+HEXO    START
+        LD    GR1,#0       ; 存放下标 0..3（高位在前）
+        LD    GR2,#4       ; 循环计数
+        LD    GR4,#C       ; 移位量 12,8,4,0
+        ST    GR4,SHIFT
+LOOP    CPA   GR2,#0
+        JZE   DONE
+        LD    GR3,NUM
+        SRL   GR3,SHIFT    ; 右移到最低 4 位
+        AND   GR3,#F       ; 取低 4 位
+        CPA   GR3,#A
+        JMI   DIG
+        ADDA  GR3,#37      ; 'A'-10
+        JUMP  STO
+DIG     ADDA  GR3,#30      ; '0'
+STO     ST    GR3,OUTBUF,GR1
+        LD    GR4,SHIFT
+        SUBA  GR4,#4
+        ST    GR4,SHIFT
+        ADDA  GR1,#1
+        SUBA  GR2,#1
+        JUMP  LOOP
+DONE    OUT   OUTBUF,LNG   ; 输出 "ABCD"
+        EXIT
+NUM     DC    #ABCD
+LNG     DC    4
+OUTBUF  DS    4
+SHIFT   DS    1
+        END

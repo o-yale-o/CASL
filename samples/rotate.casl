@@ -1,0 +1,26 @@
+; 数组循环左移一位："ABCDE" -> "BCDEA" 后输出
+ROT     START
+        LD    GR0,BUF      ; 保存首元素
+        ST    GR0,TMP
+        LD    GR1,#0       ; 下标
+        LD    GR2,NN
+        SUBA  GR2,#1
+        ST    GR2,WM       ; n-1
+LOOP    CPA   GR1,WM
+        JZE   LAST
+        JPL   LAST
+        LD    GR2,BUF+1,GR1
+        ST    GR2,BUF,GR1  ; BUF[i] = BUF[i+1]
+        ADDA  GR1,#1
+        JUMP  LOOP
+LAST    LD    GR2,WM       ; 首元素放到末尾
+        LD    GR0,TMP
+        ST    GR0,BUF,GR2
+        OUT   BUF,LNG      ; 输出 "BCDEA"
+        EXIT
+BUF     DC    'ABCDE'
+LNG     DC    5
+NN      DC    5
+TMP     DS    1
+WM      DS    1
+        END

@@ -1,0 +1,36 @@
+; 统计 BUF 中 8 个带符号数：正/负/零的个数 -> PCNT/NCNT/ZCNT
+SIGN    START
+        LD    GR1,#0        ; 正数计数
+        LD    GR2,#0        ; 负数计数
+        LD    GR3,#0        ; 零计数
+        LD    GR4,#0        ; 下标 i
+LOOP    CPA   GR4,N
+        JZE   DONE
+        LD    GR0,BUF,GR4
+        CPA   GR0,#0
+        JZE   ISZERO
+        JMI   ISNEG
+        ADDA  GR1,#1        ; 正数
+        JUMP  NEXT
+ISZERO  ADDA  GR3,#1
+        JUMP  NEXT
+ISNEG   ADDA  GR2,#1
+NEXT    ADDA  GR4,#1
+        JUMP  LOOP
+DONE    ST    GR1,PCNT
+        ST    GR2,NCNT
+        ST    GR3,ZCNT
+        EXIT
+N       DC    8
+BUF     DC    5
+        DC    -3
+        DC    0
+        DC    9
+        DC    -7
+        DC    0
+        DC    2
+        DC    -1
+PCNT    DS    1
+NCNT    DS    1
+ZCNT    DS    1
+        END

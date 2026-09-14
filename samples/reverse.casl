@@ -1,0 +1,25 @@
+; 字符串原地逆置："ABCDEF" -> "FEDCBA" 后输出
+; 注意：GR0 不能作变址寄存器（xr=0 表示无变址），下标要用 GR1..GR7
+REV     START
+        LD    GR5,#0       ; i = 0（GR5 可作变址）
+        LD    GR1,LNG
+        SUBA  GR1,#1       ; j = len-1
+LOOP    ST    GR5,IW
+        ST    GR1,JW
+        LD    GR0,IW
+        CPA   GR0,JW       ; i >= j ?
+        JPL   DONE
+        LD    GR2,BUF,GR5  ; a = BUF[i]
+        LD    GR3,BUF,GR1  ; b = BUF[j]
+        ST    GR2,BUF,GR1  ; 交换
+        ST    GR3,BUF,GR5
+        ADDA  GR5,#1       ; i++, j--
+        SUBA  GR1,#1
+        JUMP  LOOP
+DONE    OUT   BUF,LNG      ; 输出 "FEDCBA"
+        EXIT
+BUF     DC    'ABCDEF'
+LNG     DC    6
+IW      DS    1
+JW      DS    1
+        END

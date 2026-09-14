@@ -1,0 +1,22 @@
+; 斐波那契数列：F(0)..F(9) 存入 FIBBUF，运行后在内存面板观察
+FIB     START
+        LD    GR0,#1        ; F(1)
+        LD    GR1,#0        ; F(0)
+        ST    GR1,FIBBUF    ; FIB[0] = 0
+        ST    GR0,FIBBUF+1  ; FIB[1] = 1
+        LD    GR2,#2        ; 下标 i
+LOOP    CPA   GR2,#A
+        JZE   DONE
+        ST    GR0,TMP0      ; 保存 F(i-1)
+        ST    GR1,TMP1
+        LD    GR0,TMP0
+        ADDA  GR0,TMP1      ; F(i) = F(i-1) + F(i-2)
+        ST    GR0,FIBBUF,GR2
+        LD    GR1,TMP0      ; 递推：F(i-2) <- F(i-1)
+        ADDA  GR2,#1
+        JUMP  LOOP
+DONE    EXIT
+FIBBUF  DS    10
+TMP0    DS    1
+TMP1    DS    1
+        END

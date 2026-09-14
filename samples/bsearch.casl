@@ -1,0 +1,56 @@
+; 二分查找：在升序数组 BUF(8 个字)中找 KEY，结果存 IDX（下标，未找到存 -1）
+BINS    START
+        LD    GR0,#0       ; lo = 0
+        ST    GR0,LO
+        LD    GR0,N
+        SUBA  GR0,#1       ; hi = n-1
+        ST    GR0,HI
+LOOP    LD    GR0,LO
+        LD    GR1,HI
+        ST    GR1,W2
+        CPA   GR0,W2       ; lo > hi ?
+        JPL   FAIL
+        LD    GR0,LO
+        ADDA  GR0,W2       ; lo+hi
+        SRL   GR0,#1       ; mid = (lo+hi)/2
+        ST    GR0,MID
+        LD    GR1,KEYW
+        ST    GR1,W1
+        LD    GR2,MID
+        LD    GR3,BUF,GR2
+        ST    GR3,MVAL
+        CPA   GR1,MVAL     ; KEY 与 BUF[mid]
+        JZE   FOUND
+        JMI   LESS
+        LD    GR0,MID      ; KEY 大：lo = mid+1
+        ADDA  GR0,#1
+        ST    GR0,LO
+        JUMP  LOOP
+LESS    LD    GR0,MID      ; KEY 小：hi = mid-1
+        SUBA  GR0,#1
+        ST    GR0,HI
+        JUMP  LOOP
+FOUND   LD    GR0,MID
+        ST    GR0,IDX
+        EXIT
+FAIL    LD    GR0,#FFFF    ; -1
+        ST    GR0,IDX
+        EXIT
+N       DC    8
+KEYW    DC    22
+BUF     DC    3
+        DC    7
+        DC    11
+        DC    18
+        DC    22
+        DC    29
+        DC    35
+        DC    40
+LO      DS    1
+HI      DS    1
+MID     DS    1
+MVAL    DS    1
+IDX     DS    1
+W1      DS    1
+W2      DS    1
+        END

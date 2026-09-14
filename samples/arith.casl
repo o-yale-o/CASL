@@ -1,0 +1,8 @@
+        START
+        LD    GR0,#10
+        ADDA  GR0,#5
+        SUBA  GR0,#3
+        ST    GR0,ANS
+        EXIT
+ANS     DS    1
+        END

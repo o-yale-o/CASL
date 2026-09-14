@@ -1,0 +1,10 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/OpenSource/CASL/build-core/cmake_install.cmake",
+		"D:/OpenSource/CASL/build-core/core/cmake_install.cmake",
+		"D:/OpenSource/CASL/build-core/core/tests/cmake_install.cmake",
+		"D:/OpenSource/CASL/build-core/core/tools/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

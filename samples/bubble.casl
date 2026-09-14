@@ -1,0 +1,44 @@
+; 冒泡排序（软考经典题型）：把 BUF 中 6 个字符码升序排序后输出
+; 单步运行时配合“内存”面板观察 BUF 区域的变化
+BUBBLE  START
+        LD    GR0,#0        ; 外层 i = 0
+OUTER   CPA   GR0,LIM       ; LIM = 5 (n-1)
+        JZE   DONE
+        ST    GR0,IWORD
+        LD    GR2,LIM       ; 内层上界 = LIM-1-i
+        SUBA  GR2,#1
+        SUBA  GR2,IWORD
+        ST    GR2,LWORD
+        LD    GR1,#0        ; 内层 j = 0
+INNER   CPA   GR1,LWORD
+        JPL   IEND
+        LD    GR3,BUF,GR1   ; a = BUF[j]
+        LD    GR4,BUF+1,GR1 ; b = BUF[j+1]
+        ST    GR3,VA
+        ST    GR4,VB
+        CPA   GR3,VB        ; a > b ?
+        JPL   SWAP
+        JUMP  NEXT
+SWAP    LD    GR3,VB
+        ST    GR3,BUF,GR1
+        LD    GR3,VA
+        ST    GR3,BUF+1,GR1
+NEXT    ADDA  GR1,#1
+        JUMP  INNER
+IEND    ADDA  GR0,#1
+        JUMP  OUTER
+DONE    OUT   BUF,LNG       ; 输出 "DEORST"
+        EXIT
+LIM     DC    5
+LNG     DC    6
+IWORD   DS    1
+LWORD   DS    1
+VA      DS    1
+VB      DS    1
+BUF     DC    'S'
+        DC    'O'
+        DC    'R'
+        DC    'T'
+        DC    'E'
+        DC    'D'
+        END

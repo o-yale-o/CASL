@@ -1,0 +1,51 @@
+; 计算 1..10 的和（55）并以十进制输出
+; 经典软考题型：循环累加 + 除 10 取余 + 栈式倒序（此处用变址寄存器倒序）
+SUM10   START
+        LD    GR0,#0        ; 累加器
+        LD    GR1,#A        ; 计数器 = 10
+LOOP    ST    GR1,WORK      ; CASL 无寄存器间 ADDA，经内存转一下
+        ADDA  GR0,WORK
+        SUBA  GR1,#1
+        CPA   GR1,#0
+        JPL   LOOP
+        ; GR0 = 55，转十进制输出
+        ST    GR0,NUM
+        LD    GR2,#0        ; 位数
+        LD    GR0,NUM
+        CPA   GR0,#0
+        JZE   PDIG0
+PDIV    LD    GR1,#0        ; 商
+PSUB    SUBA  GR0,#A        ; 反复减 10
+        JMI   PREM
+        ADDA  GR1,#1
+        JUMP  PSUB
+PREM    ADDA  GR0,#A        ; 还原余数 0..9
+        ADDA  GR0,#30       ; + '0'
+        ST    GR0,DIGBUF,GR2
+        ADDA  GR2,#1
+        ST    GR1,QWORD     ; 商作为下一轮被除数
+        LD    GR0,QWORD
+        CPA   GR1,#0
+        JNZ   PDIV
+        JUMP  POUT
+PDIG0   LD    GR0,#30       ; 数字 0
+        ST    GR0,DIGBUF
+        LD    GR2,#1
+POUT    ST    GR2,LNG       ; 位数
+        LD    GR3,#0        ; 倒序拷贝到输出缓冲
+PLOOP   CPA   GR2,#0
+        JZE   PDONE
+        SUBA  GR2,#1
+        LD    GR0,DIGBUF,GR2
+        ST    GR0,OUTBUF,GR3
+        ADDA  GR3,#1
+        JUMP  PLOOP
+PDONE   OUT   OUTBUF,LNG
+        EXIT
+WORK    DS    1
+NUM     DS    1
+QWORD   DS    1
+DIGBUF  DS    8
+OUTBUF  DS    8
+LNG     DS    1
+        END

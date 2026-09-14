@@ -1,0 +1,16 @@
+        START
+        LD    GR0,#0
+        LD    GR1,#4
+LOOP    ADDA  GR0,BUF,GR1
+        SUBA  GR1,#1
+        CPA   GR1,#FFFF
+        JPL   LOOP
+        ST    GR0,SUM
+        EXIT
+BUF     DC    1
+        DC    2
+        DC    3
+        DC    4
+        DC    5
+SUM     DS    1
+        END

@@ -1,0 +1,22 @@
+; 统计字符串中指定字符（'L'）出现的次数 -> COUNT
+CNT     START
+        LD    GR1,#0       ; 计数
+        LD    GR2,#0       ; 下标
+LOOP    CPA   GR2,LNG
+        JZE   DONE
+        LD    GR0,BUF,GR2
+        LD    GR3,CH
+        ST    GR3,W
+        CPA   GR0,W
+        JNZ   NEXT
+        ADDA  GR1,#1       ; 找到一次
+NEXT    ADDA  GR2,#1
+        JUMP  LOOP
+DONE    ST    GR1,COUNT    ; 3
+        EXIT
+BUF     DC    'HELLO WORLD'
+LNG     DC    11
+CH      DC    'L'
+COUNT   DS    1
+W       DS    1
+        END

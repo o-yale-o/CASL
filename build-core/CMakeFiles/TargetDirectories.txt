@@ -1,0 +1,10 @@
+D:/OpenSource/CASL/build-core/CMakeFiles/RUN_TESTS.dir
+D:/OpenSource/CASL/build-core/CMakeFiles/ALL_BUILD.dir
+D:/OpenSource/CASL/build-core/CMakeFiles/ZERO_CHECK.dir
+D:/OpenSource/CASL/build-core/core/CMakeFiles/casl-core.dir
+D:/OpenSource/CASL/build-core/core/CMakeFiles/RUN_TESTS.dir
+D:/OpenSource/CASL/build-core/core/tests/CMakeFiles/test_assembler.dir
+D:/OpenSource/CASL/build-core/core/tests/CMakeFiles/test_machine.dir
+D:/OpenSource/CASL/build-core/core/tests/CMakeFiles/RUN_TESTS.dir
+D:/OpenSource/CASL/build-core/core/tools/CMakeFiles/casldump.dir
+D:/OpenSource/CASL/build-core/core/tools/CMakeFiles/RUN_TESTS.dir

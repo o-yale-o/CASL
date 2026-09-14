@@ -1,0 +1,12 @@
+; 从键盘读入一行（最长 256 字符）并原样回显，直到读入空行退出
+ECHO    START
+LOOP    IN    BUF,LNG
+        LD    GR0,LNG
+        CPA   GR0,#0
+        JZE   DONE
+        OUT   BUF,LNG
+        JUMP  LOOP
+DONE    EXIT
+BUF     DS    256
+LNG     DS    1
+        END

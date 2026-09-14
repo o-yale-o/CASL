@@ -1,0 +1,30 @@
+; 阶乘：5! = 120。COMET 无乘法指令，用"重复加法"子程序实现乘法
+FACT    START
+        LD    GR0,#1       ; F = 1
+        LD    GR1,#1       ; i = 1
+LOOP    CPA   GR1,N
+        JPL   DONE         ; i > N 结束
+        CALL  MUL          ; GR2 = GR0 * GR1
+        ST    GR2,W
+        LD    GR0,W        ; F = F * i
+        ADDA  GR1,#1
+        JUMP  LOOP
+DONE    ST    GR0,F        ; 120
+        EXIT
+; ---- 乘法子程序：GR2 = GR0 * GR1（重复加法）----
+MUL     ST    GR0,FA
+        ST    GR1,FB
+        LD    GR2,#0
+        LD    GR3,FB
+MLOOP   CPA   GR3,#0
+        JZE   MRET
+        ADDA  GR2,FA       ; 累加 FB 次
+        SUBA  GR3,#1
+        JUMP  MLOOP
+MRET    RET
+N       DC    5
+F       DS    1
+W       DS    1
+FA      DS    1
+FB      DS    1
+        END

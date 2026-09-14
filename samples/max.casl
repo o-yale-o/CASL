@@ -1,0 +1,27 @@
+; 求 BUF 中 8 个带符号数的最大值 -> MAXW
+MAX     START
+        LD    GR0,BUF       ; 当前最大值 = BUF[0]
+        LD    GR1,#1        ; 下标从 1 开始
+LOOP    CPA   GR1,N
+        JZE   DONE
+        LD    GR2,BUF,GR1
+        ST    GR2,WORK
+        CPA   GR0,WORK
+        JPL   NEXT          ; 当前最大值更大，继续
+        LD    GR0,WORK      ; 更新最大值
+NEXT    ADDA  GR1,#1
+        JUMP  LOOP
+DONE    ST    GR0,MAXW
+        EXIT
+N       DC    8
+BUF     DC    5
+        DC    -3
+        DC    9
+        DC    1
+        DC    7
+        DC    -8
+        DC    2
+        DC    6
+WORK    DS    1
+MAXW    DS    1
+        END

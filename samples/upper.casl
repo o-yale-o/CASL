@@ -1,0 +1,19 @@
+; 小写字母转大写后输出："Hello CASL 2024!" -> "HELLO CASL 2024!"
+UPPER   START
+        LD    GR1,#0
+LOOP    CPA   GR1,LNG
+        JZE   DONE
+        LD    GR0,BUF,GR1
+        CPA   GR0,#61      ; < 'a' 跳过
+        JMI   NEXT
+        CPA   GR0,#7A      ; > 'z' 跳过
+        JPL   NEXT
+        SUBA  GR0,#20      ; 小写转大写
+        ST    GR0,BUF,GR1
+NEXT    ADDA  GR1,#1
+        JUMP  LOOP
+DONE    OUT   BUF,LNG
+        EXIT
+BUF     DC    'Hello CASL 2024!'
+LNG     DC    16
+        END
