@@ -1,6 +1,7 @@
 # Build outputs
 build/
 build-core/
+dist/
 out/
 x64/
 Debug/
