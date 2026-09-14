@@ -225,7 +225,7 @@ CSymbolsPanel::CSymbolsPanel(QWidget* pParent) : QWidget(pParent) {
     auto* pLayout = new QVBoxLayout(this);
     pLayout->setContentsMargins(4, 4, 4, 4);
     m_ptable = new QTableWidget(0, 4, this);
-    m_ptable->setHorizontalHeaderLabels({"变量", "地址", "值(可改)", "内容"});
+    m_ptable->setHorizontalHeaderLabels({"变量", "地址", "值(可改)", "内容(可改)"});
     m_ptable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     // value column editable (double-click / F2); other columns read-only
     m_ptable->setEditTriggers(QAbstractItemView::DoubleClicked |
@@ -234,22 +234,36 @@ CSymbolsPanel::CSymbolsPanel(QWidget* pParent) : QWidget(pParent) {
     m_ptable->setToolTip(
         "程序里每个标号的当前值（该地址处一个字的内容）。\n"
         "“内容”列显示字符串常数（DC '...' 定义）的完整文本。\n"
-        "双击“值”列可直接修改内存：单个字支持十六进制(0041、#41)、\n"
-        "十进制(65、-1)或字符('A')；带引号的多字符(如 'HELLO')\n"
-        "会逐字符写入连续的内存字（整串替换）。回车生效。");
+        "两列都可以双击修改：\n"
+        "  值列 —— 单个字：0041 / #41 / 65 / -1 / 'A'，或带引号整串 'HELLO'\n"
+        "  内容列 —— 字符串行直接输入新文本（可不带引号，如 NI HAO，\n"
+        "             逐字符写入连续内存字）；数值行输入数字\n"
+        "回车生效，状态栏显示修改结果。");
     pLayout->addWidget(m_ptable);
 
     connect(m_ptable, &QTableWidget::itemChanged, this,
             [this](QTableWidgetItem* pItem) {
                 if (m_bUpdating || !pItem) return;
-                if (pItem->column() != 2) return; // only the value column
+                if (pItem->column() != 2 && pItem->column() != 3) return;
                 // row -> address from the address column
                 QTableWidgetItem* pAddrItem =
                     m_ptable->item(pItem->row(), 1);
                 bool bOk = false;
                 int nAddress = pAddrItem ? pAddrItem->text().toInt(&bOk, 16)
                                          : 0;
-                if (bOk) emit ValueEditRequested(nAddress, pItem->text());
+                if (!bOk) return;
+                QString strText = pItem->text().trimmed();
+                if (pItem->column() == 3) {
+                    // content column: on string rows unquoted text means the
+                    // raw string content -> wrap it so the handler treats it
+                    // as a whole-string replacement
+                    auto itSpan = m_mapSpans.find(nAddress);
+                    const bool bStringRow =
+                        itSpan != m_mapSpans.end() && itSpan->second >= 2;
+                    if (bStringRow && !strText.startsWith('\''))
+                        strText = "'" + strText + "'";
+                }
+                emit ValueEditRequested(nAddress, strText);
             });
 }
 
@@ -270,7 +284,8 @@ void CSymbolsPanel::UpdateSymbols(
         pValue->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
                          Qt::ItemIsEditable);
         auto* pContent = new QTableWidgetItem("");
-        pContent->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        pContent->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
+                           Qt::ItemIsEditable);
         m_ptable->setItem(nRow, 0, pName);
         m_ptable->setItem(nRow, 1, pAddr);
         m_ptable->setItem(nRow, 2, pValue);
@@ -329,6 +344,11 @@ QString CSymbolsPanel::GetCellTextForTest(int nRow, int nCol) const {
 
 void CSymbolsPanel::EditValueForTest(int nRow, const QString& strText) {
     QTableWidgetItem* pItem = m_ptable->item(nRow, 2);
+    if (pItem) pItem->setText(strText); // fires itemChanged -> signal
+}
+
+void CSymbolsPanel::EditContentForTest(int nRow, const QString& strText) {
+    QTableWidgetItem* pItem = m_ptable->item(nRow, 3);
     if (pItem) pItem->setText(strText); // fires itemChanged -> signal
 }
 

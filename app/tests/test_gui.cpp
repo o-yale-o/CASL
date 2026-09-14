@@ -256,6 +256,35 @@ int main(int argc, char** argv) {
           },
           3000),
           "watch: editing MSG to 'XYZ' patches 3 consecutive words");
+    // content-column editing: unquoted text on a string row = raw content
+    pSymbols->EditContentForTest(nMsgRow, "NI HAO");
+    Check(Pump([&] {
+              std::vector<uint16_t> arrWords;
+              wnd.GetRunnerForTest()->CopyMemory(arrWords);
+              bool bOk = false;
+              int nAddr = pSymbols->GetCellTextForTest(nMsgRow, 1)
+                              .toInt(&bOk, 16);
+              return bOk && arrWords[(size_t)nAddr] == 0x004E &&
+                     arrWords[(size_t)nAddr + 1] == 0x0049 &&
+                     arrWords[(size_t)nAddr + 2] == 0x0020 &&
+                     arrWords[(size_t)nAddr + 3] == 0x0048 &&
+                     arrWords[(size_t)nAddr + 4] == 0x0041 &&
+                     arrWords[(size_t)nAddr + 5] == 0x004F;
+          },
+          3000),
+          "content edit: 'NI HAO' written as 6 consecutive words");
+    // content-column editing on a numeric row: plain decimal
+    pSymbols->EditContentForTest(nLngRow, "20");
+    Check(Pump([&] {
+              std::vector<uint16_t> arrWords;
+              wnd.GetRunnerForTest()->CopyMemory(arrWords);
+              bool bOk = false;
+              int nAddr = pSymbols->GetCellTextForTest(nLngRow, 1)
+                              .toInt(&bOk, 16);
+              return bOk && arrWords[(size_t)nAddr] == 20;
+          },
+          3000),
+          "content edit: LNG -> 20 (single decimal word)");
     // decimal and negative parsing
     uint16_t w = 0;
     Check(CMainWindow::ParseWordTextForTest("65", w) && w == 0x0041,

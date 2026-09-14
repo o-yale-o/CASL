@@ -84,7 +84,8 @@ public:
     // test hooks
     QString GetCellTextForTest(int nRow, int nCol) const;
     int GetRowCountForTest() const { return m_ptable->rowCount(); }
-    void EditValueForTest(int nRow, const QString& strText); // simulate edit
+    void EditValueForTest(int nRow, const QString& strText);   // value column
+    void EditContentForTest(int nRow, const QString& strText); // content column
 
 signals:
     // the user edited the value cell of the symbol at nAddress
