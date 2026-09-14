@@ -126,6 +126,12 @@ int main(int argc, char** argv) {
     CFindBar* pFindBar = pEditor->GetFindBarForTest();
     Check(pFindBar != nullptr && pFindBar->isVisible(),
           "find bar shows via API");
+    // right edge of the bar hugs the editor's right edge (top-right corner)
+    Check(pFindBar->x() + pFindBar->width() <= pEditor->width() + 6 &&
+              pFindBar->x() + pFindBar->width() >= pEditor->width() - 60,
+          "find bar positioned at the editor's top-right");
+    std::printf("  [info] bar x=%d w=%d editor w=%d\n", pFindBar->x(),
+                pFindBar->width(), pEditor->width());
     QLineEdit* peditFind = pFindBar->findChild<QLineEdit*>();
     peditFind->setText("LD");
     Check(pEditor->GetFindMatchCountForTest() == 2,

@@ -434,10 +434,6 @@ CCodeEditor::CCodeEditor(QWidget* pParent) : CEditorBase(pParent) {
             });
     connect(this, &QPlainTextEdit::cursorPositionChanged, this,
             &CCodeEditor::OnHighlightCurrentLine);
-    // Ctrl+F opens the find bar
-    auto* pFindShortcut = new QShortcut(QKeySequence::Find, this);
-    connect(pFindShortcut, &QShortcut::activated, this,
-            &CCodeEditor::ShowFindBar);
     OnUpdateMarginWidth(0);
     OnHighlightCurrentLine();
 }
@@ -614,11 +610,6 @@ CCodeEditor::CCodeEditor(QWidget* pParent) : CEditorBase(pParent) {
         bDarkTheme ? QColor(0x3A, 0x82, 0xD8) : QColor(0xF5, 0xA6, 0x23), 1);
     SendScintilla(QsciScintillaBase::SCI_INDICSETALPHA, 1, 170);
     setIndicatorDrawUnder(true, 1);
-
-    // Ctrl+F opens the find bar
-    auto* pFindShortcut = new QShortcut(QKeySequence::Find, this);
-    connect(pFindShortcut, &QShortcut::activated, this,
-            &CCodeEditor::ShowFindBar);
 }
 
 void CCodeEditor::resizeEvent(QResizeEvent* pEvent) {
@@ -686,12 +677,13 @@ void CCodeEditor::ShowFindBar() {
     }
     PositionFindBar();
     m_pFindBar->ShowAndFocus();
+    PositionFindBar(); // geometry needs the widget visible/laid out
     if (!m_pFindBar->findChild<QLineEdit*>()->text().isEmpty())
         RerunFind(true);
 }
 
 void CCodeEditor::PositionFindBar() {
-    if (!m_pFindBar || !m_pFindBar->isVisible()) return;
+    if (!m_pFindBar) return;
     m_pFindBar->adjustSize();
     const int nW = qMin(m_pFindBar->width() + 8, width() - 12);
     m_pFindBar->setGeometry(width() - nW - 6, 6, nW,
