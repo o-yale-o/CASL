@@ -220,6 +220,11 @@ int main(int argc, char** argv) {
           "watch: MSG shows first char 'H' = 0048");
     Check(pSymbols->GetCellTextForTest(nLngRow, 2).startsWith("000D"),
           "watch: LNG shows 13 = 000D");
+    // content column decodes the whole DC '...' string
+    Check(pSymbols->GetCellTextForTest(nMsgRow, 3) == "'HELLO, CASL!'",
+          "watch: MSG content column shows the whole string");
+    Check(pSymbols->GetCellTextForTest(nLngRow, 3) == "13",
+          "watch: LNG content column shows decimal 13");
     // runtime edit via the watch panel: MSG <- 0051 ('Q')
     pSymbols->EditValueForTest(nMsgRow, "0051");
     Check(Pump([&] {
@@ -233,6 +238,24 @@ int main(int argc, char** argv) {
           },
           3000),
           "watch: editing MSG to 0051 patches machine memory");
+    // content column follows the runtime change (0051 = 'Q', rest unchanged)
+    QCoreApplication::processEvents();
+    Check(pSymbols->GetCellTextForTest(nMsgRow, 3) == "'QELLO, CASL!'",
+          "watch: content column updates after edit");
+    // whole-string edit: 'XYZ' writes 3 consecutive words
+    pSymbols->EditValueForTest(nMsgRow, "'XYZ'");
+    Check(Pump([&] {
+              std::vector<uint16_t> arrWords;
+              wnd.GetRunnerForTest()->CopyMemory(arrWords);
+              bool bOk = false;
+              int nAddr = pSymbols->GetCellTextForTest(nMsgRow, 1)
+                              .toInt(&bOk, 16);
+              return bOk && arrWords[(size_t)nAddr] == 0x0058 &&
+                     arrWords[(size_t)nAddr + 1] == 0x0059 &&
+                     arrWords[(size_t)nAddr + 2] == 0x005A;
+          },
+          3000),
+          "watch: editing MSG to 'XYZ' patches 3 consecutive words");
     // decimal and negative parsing
     uint16_t w = 0;
     Check(CMainWindow::ParseWordTextForTest("65", w) && w == 0x0041,

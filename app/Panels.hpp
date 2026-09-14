@@ -67,14 +67,17 @@ private:
 
 // ---------------------------------------------------------------------------
 // symbol table / watch window (VC6 style: name, address, live value; the
-// value column is editable at runtime)
+// value column is editable at runtime; string constants show their content)
 // ---------------------------------------------------------------------------
 class CSymbolsPanel : public QWidget {
     Q_OBJECT
 public:
     explicit CSymbolsPanel(QWidget* pParent = nullptr);
-    // (re)builds the row set after assemble (name + address columns)
-    void UpdateSymbols(const std::map<std::string, int>& mapSymbols);
+    // (re)builds the row set after assemble (name + address columns);
+    // mapSpans: data word count per address (DC/DS line length) so string
+    // constants can be decoded as whole strings (0 = not multi-word data)
+    void UpdateSymbols(const std::map<std::string, int>& mapSymbols,
+                       const std::map<int, int>& mapSpans);
     // refreshes the value columns from the latest memory snapshot
     void UpdateValues(const std::vector<uint16_t>& arrWords);
 
@@ -90,6 +93,7 @@ signals:
 private:
     QTableWidget* m_ptable = nullptr;
     bool m_bUpdating = false; // suppress itemChanged during refresh
+    std::map<int, int> m_mapSpans; // address -> data word count
 };
 
 // ---------------------------------------------------------------------------

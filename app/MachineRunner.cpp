@@ -160,6 +160,18 @@ void CMachineRunner::WriteMemoryWord(int nAddress, uint16_t wValue) {
     m_cv.notify_all();
 }
 
+void CMachineRunner::WriteMemoryWords(int nAddress,
+                                      const std::vector<uint16_t>& arrValues) {
+    {
+        std::lock_guard<std::mutex> lock(m_mtx);
+        if (!m_bLoaded) return;
+        for (size_t i = 0; i < arrValues.size(); ++i)
+            m_pMachine->SetMem(nAddress + (int)i, (int16_t)arrValues[i]);
+        PublishStateLocked(true);
+    }
+    m_cv.notify_all();
+}
+
 bool CMachineRunner::CheckStepHook(uint16_t wPr) {
     // called from the machine (worker thread) before each instruction
     std::lock_guard<std::mutex> lock(m_mtx);

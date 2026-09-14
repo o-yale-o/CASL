@@ -39,6 +39,8 @@ public:
     // live machine (if loaded) and the published snapshot, then forces a
     // StateChanged publish so panels refresh immediately
     void WriteMemoryWord(int nAddress, uint16_t wValue);
+    // writes a run of consecutive words (e.g. a whole string constant)
+    void WriteMemoryWords(int nAddress, const std::vector<uint16_t>& arrValues);
 
 public slots:
     void StartRun();                    // resume / start continuous run

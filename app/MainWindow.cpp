@@ -339,7 +339,7 @@ void CMainWindow::OnFileNew() {
     m_bAssembledOk = false;
     SetDebugActionsEnabled(false);
     m_pErrorsPanel->UpdateErrors({});
-    m_pSymbolsPanel->UpdateSymbols({});
+    m_pSymbolsPanel->UpdateSymbols({}, {});
     m_pEditor->HighlightLine(-1);
     m_plblStatus->setText("新建：请输入源程序后按 F7 编译");
 }
@@ -405,7 +405,23 @@ void CMainWindow::OnAssemble() {
     m_result = casl::Assemble(m_pEditor->GetSourceText().toStdString());
     m_bAssembledOk = m_result.m_bOk;
     m_pErrorsPanel->UpdateErrors(m_result.m_arrErrors);
-    m_pSymbolsPanel->UpdateSymbols(m_result.m_mapSymbols);
+    // build the data-span map (address -> word count of its DC/DS line) so
+    // the watch panel can decode string constants as whole strings
+    {
+        std::map<int, int> mapLineCounts; // srcLine -> words on that line
+        std::map<int, int> mapAddrLine;   // first data word addr -> srcLine
+        for (const auto& entry : m_result.m_arrEntries) {
+            if (!entry.m_bIsData) continue;
+            ++mapLineCounts[entry.m_nSrcLine];
+            mapAddrLine.emplace(entry.m_nAddress, entry.m_nSrcLine);
+        }
+        std::map<int, int> mapSpans; // data addr -> word count
+        for (const auto& [nAddr, nLine] : mapAddrLine) {
+            auto it = mapLineCounts.find(nLine);
+            if (it != mapLineCounts.end()) mapSpans[nAddr] = it->second;
+        }
+        m_pSymbolsPanel->UpdateSymbols(m_result.m_mapSymbols, mapSpans);
+    }
 
     if (!m_result.m_bOk) {
         m_plblStatus->setText("编译失败，请查看“编译信息”面板");
@@ -480,14 +496,38 @@ bool CMainWindow::ParseWordText(const QString& strText, uint16_t& wValue) {
 }
 
 void CMainWindow::OnMemoryEdit(int nAddress, const QString& strText) {
+    if (!m_bAssembledOk) return;
+
+    // quoted multi-character text -> write the whole string, one char per
+    // word, starting at nAddress (e.g. 'HELLO' patches a DC '...' constant)
+    {
+        QString str = strText.trimmed();
+        if (str.size() >= 2 && str.startsWith('\'') && str.endsWith('\'') &&
+            str.size() >= 3) {
+            const QString strInner = str.mid(1, str.size() - 2);
+            if (!strInner.isEmpty()) {
+                std::vector<uint16_t> arrWords;
+                for (const QChar& ch : strInner)
+                    arrWords.push_back((uint16_t)ch.unicode());
+                m_pRunner->WriteMemoryWords(nAddress, arrWords);
+                m_plblStatus->setText(
+                    QString("已修改内存 [%1] = '%2'（%3 个字）")
+                        .arg(nAddress, 4, 16, QChar('0'))
+                        .arg(strInner)
+                        .arg(arrWords.size())
+                        .toUpper());
+                return;
+            }
+        }
+    }
+
     uint16_t wValue = 0;
     if (!ParseWordText(strText, wValue)) {
         m_plblStatus->setText(
-            QString("无法识别的数值“%1”（可用：0041、#41、65、-1、'A'）")
+            QString("无法识别的数值“%1”（可用：0041、#41、65、-1、'A'、'ABC'）")
                 .arg(strText));
         return;
     }
-    if (!m_bAssembledOk) return;
     m_pRunner->WriteMemoryWord(nAddress, wValue);
     m_plblStatus->setText(QString("已修改内存 [%1] = %2")
                               .arg(nAddress, 4, 16, QChar('0'))
