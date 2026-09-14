@@ -3,10 +3,14 @@
 #include <QColor>
 #include <QFontDatabase>
 #include <QGuiApplication>
+#include <QLineEdit>
 #include <QPalette>
 #include <QRegularExpression>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QToolTip>
+
+#include "FindBar.hpp"
 
 #include <cctype>
 #include <string>
@@ -48,14 +52,7 @@ QFont MakeEditorFont() {
     return fontEditor;
 }
 
-class CEditorTheme {
-public:
-    QColor m_clrPaper, m_clrText;
-    QColor m_clrMarginBack, m_clrMarginText;
-    QColor m_clrSelectionBack, m_clrSelectionText;
-    QColor m_clrCaretLine;
-    QColor m_clrExecLine, m_clrExecText; // execution line band + its text
-};
+} // namespace
 
 const CEditorTheme& EditorTheme() {
     static const CEditorTheme s_theme = [] {
@@ -87,6 +84,8 @@ const CEditorTheme& EditorTheme() {
     }();
     return s_theme;
 }
+
+namespace {
 
 const char* s_pszCaslKeywords =
     "START END DS DC IN OUT EXIT NOP LD ST ADDA ADDL SUBA SUBL AND OR XOR "
@@ -435,6 +434,10 @@ CCodeEditor::CCodeEditor(QWidget* pParent) : CEditorBase(pParent) {
             });
     connect(this, &QPlainTextEdit::cursorPositionChanged, this,
             &CCodeEditor::OnHighlightCurrentLine);
+    // Ctrl+F opens the find bar
+    auto* pFindShortcut = new QShortcut(QKeySequence::Find, this);
+    connect(pFindShortcut, &QShortcut::activated, this,
+            &CCodeEditor::ShowFindBar);
     OnUpdateMarginWidth(0);
     OnHighlightCurrentLine();
 }
@@ -459,6 +462,7 @@ void CCodeEditor::resizeEvent(QResizeEvent* pEvent) {
     QRect rcContents = contentsRect();
     m_pMarginArea->setGeometry(rcContents.left(), rcContents.top(),
                                MarginWidth(), rcContents.height());
+    PositionFindBar();
 }
 
 void CCodeEditor::OnHighlightCurrentLine() {
@@ -473,6 +477,8 @@ void CCodeEditor::OnHighlightCurrentLine() {
         sel.cursor.clearSelection();
         arrSelections.append(sel);
     }
+    // find-bar matches join the extra selections (kept separately)
+    arrSelections.append(m_arrFindSelections);
     if (m_nExecLine > 0) {
         QTextEdit::ExtraSelection sel;
         sel.format.setBackground(th.m_clrExecLine);
@@ -553,6 +559,7 @@ CCodeEditor::CCodeEditor(QWidget* pParent) : CEditorBase(pParent) {
 
     // ---- theme-aware color scheme (explicit, never palette-derived) ----
     const CEditorTheme& th = EditorTheme();
+    const bool bDarkTheme = th.m_clrPaper.lightness() < 128;
     setPaper(th.m_clrPaper);           // default background
     setColor(th.m_clrText);            // default foreground
     setSelectionForegroundColor(th.m_clrSelectionText);
@@ -595,6 +602,28 @@ CCodeEditor::CCodeEditor(QWidget* pParent) : CEditorBase(pParent) {
         m_strLastHoverWord.clear();
         QToolTip::hideText();
     });
+
+    // find-bar indicators: 0 = all matches, 1 = current match (filled box)
+    indicatorDefine(QsciScintilla::FullBoxIndicator, 0);
+    setIndicatorForegroundColor(
+        bDarkTheme ? QColor(0x6E, 0x9E, 0xDE) : QColor(0xE8, 0xB4, 0x5A), 0);
+    SendScintilla(QsciScintillaBase::SCI_INDICSETALPHA, 0, 70);
+    setIndicatorDrawUnder(true, 0);
+    indicatorDefine(QsciScintilla::FullBoxIndicator, 1);
+    setIndicatorForegroundColor(
+        bDarkTheme ? QColor(0x3A, 0x82, 0xD8) : QColor(0xF5, 0xA6, 0x23), 1);
+    SendScintilla(QsciScintillaBase::SCI_INDICSETALPHA, 1, 170);
+    setIndicatorDrawUnder(true, 1);
+
+    // Ctrl+F opens the find bar
+    auto* pFindShortcut = new QShortcut(QKeySequence::Find, this);
+    connect(pFindShortcut, &QShortcut::activated, this,
+            &CCodeEditor::ShowFindBar);
+}
+
+void CCodeEditor::resizeEvent(QResizeEvent* pEvent) {
+    QsciScintilla::resizeEvent(pEvent);
+    PositionFindBar();
 }
 
 #endif
@@ -615,6 +644,195 @@ void CCodeEditor::ShowHoverTooltip(const QString& strWord,
         return;
     }
     QToolTip::showText(ptGlobal, strText, this);
+}
+
+// ---------------------------------------------------------------------------
+// find bar (VS Code style)
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// whole-word boundary test for a haystack character
+template <typename TChar>
+bool IsWordCharT(const TChar& ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+           (ch >= '0' && ch <= '9') || ch == '_';
+}
+
+} // namespace
+
+void CCodeEditor::ShowFindBar() {
+    if (!m_pFindBar) {
+        m_pFindBar = new CFindBar(this);
+        connect(m_pFindBar, &CFindBar::FindTextChanged, this,
+                [this](const QString&) { RerunFind(true); });
+        connect(m_pFindBar, &CFindBar::OptionsChanged, this,
+                [this] { RerunFind(true); });
+        connect(m_pFindBar, &CFindBar::NextRequested, this, [this] {
+            if (m_arrFindMatches.empty()) return;
+            GotoFindMatch((m_nFindCur + 1) % (int)m_arrFindMatches.size());
+        });
+        connect(m_pFindBar, &CFindBar::PrevRequested, this, [this] {
+            if (m_arrFindMatches.empty()) return;
+            GotoFindMatch(m_nFindCur <= 0
+                              ? (int)m_arrFindMatches.size() - 1
+                              : m_nFindCur - 1);
+        });
+        connect(m_pFindBar, &CFindBar::CloseRequested, this, [this] {
+            ClearFindHighlights();
+            m_pFindBar->hide();
+            setFocus();
+        });
+    }
+    PositionFindBar();
+    m_pFindBar->ShowAndFocus();
+    if (!m_pFindBar->findChild<QLineEdit*>()->text().isEmpty())
+        RerunFind(true);
+}
+
+void CCodeEditor::PositionFindBar() {
+    if (!m_pFindBar || !m_pFindBar->isVisible()) return;
+    m_pFindBar->adjustSize();
+    const int nW = qMin(m_pFindBar->width() + 8, width() - 12);
+    m_pFindBar->setGeometry(width() - nW - 6, 6, nW,
+                            m_pFindBar->sizeHint().height());
+}
+
+void CCodeEditor::RerunFind(bool bFromCursor) {
+    if (!m_pFindBar) return;
+    m_arrFindMatches.clear();
+    m_nFindCur = -1;
+
+    const QString strNeedle = m_pFindBar->findChild<QLineEdit*>()->text();
+    if (strNeedle.isEmpty()) {
+        ClearFindHighlights();
+        m_pFindBar->UpdateCount(-1, 0);
+        return;
+    }
+    const bool bCs = m_pFindBar->IsCaseSensitive();
+    const bool bWord = m_pFindBar->IsWholeWord();
+
+#ifdef CASL_HAVE_QSCINTILLA
+    // Scintilla positions are UTF-8 byte offsets
+    const QByteArray arrHay = text().toUtf8();
+    const QByteArray arrNeedle = strNeedle.toUtf8();
+    const QByteArray arrHayL = bCs ? arrHay : arrHay.toLower();
+    const QByteArray arrNeedleL = bCs ? arrNeedle : arrNeedle.toLower();
+    auto IsWordCharAt = [&arrHayL](int nIdx) { return IsWordCharT(arrHayL.at(nIdx)); };
+    auto IndexOf = [&arrHayL, &arrNeedleL](int nFrom) {
+        return arrHayL.indexOf(arrNeedleL, nFrom);
+    };
+    const int nHayLen = (int)arrHayL.size();
+    const int nNeedleLen = (int)arrNeedleL.size();
+#else
+    // QTextDocument positions are QChar offsets
+    const QString arrHayL = toPlainText();
+    const QString arrNeedleL = strNeedle;
+    auto IsWordCharAt = [&arrHayL](int nIdx) { return IsWordCharT(arrHayL.at(nIdx)); };
+    auto IndexOf = [&arrHayL, &arrNeedleL, bCs](int nFrom) {
+        return arrHayL.indexOf(arrNeedleL, nFrom,
+                               bCs ? Qt::CaseSensitive : Qt::CaseInsensitive);
+    };
+    const int nHayLen = (int)arrHayL.size();
+    const int nNeedleLen = (int)arrNeedleL.size();
+#endif
+
+    for (int nFrom = 0;;) {
+        const int nPos = IndexOf(nFrom);
+        if (nPos < 0) break;
+        const bool bBoundary =
+            !bWord || ((nPos == 0 || !IsWordCharAt(nPos - 1)) &&
+                       (nPos + nNeedleLen >= nHayLen ||
+                        !IsWordCharAt(nPos + nNeedleLen)));
+        if (bBoundary) m_arrFindMatches.push_back({nPos, nNeedleLen});
+        nFrom = nPos + 1;
+    }
+
+    // start at the first match at/after the caret
+    int nStart = 0;
+    if (bFromCursor) {
+        const int nCaret =
+#ifdef CASL_HAVE_QSCINTILLA
+            (int)SendScintilla(QsciScintillaBase::SCI_GETCURRENTPOS);
+#else
+            textCursor().position();
+#endif
+        for (size_t i = 0; i < m_arrFindMatches.size(); ++i) {
+            if (m_arrFindMatches[i].first >= nCaret) {
+                nStart = (int)i;
+                break;
+            }
+        }
+    }
+    if (!m_arrFindMatches.empty()) GotoFindMatch(nStart);
+    else ClearFindHighlights();
+    m_pFindBar->UpdateCount(m_nFindCur, (int)m_arrFindMatches.size());
+}
+
+void CCodeEditor::GotoFindMatch(int nIndex) {
+    if (nIndex < 0 || (size_t)nIndex >= m_arrFindMatches.size()) return;
+    m_nFindCur = nIndex;
+    const auto& mt = m_arrFindMatches[(size_t)nIndex];
+#ifdef CASL_HAVE_QSCINTILLA
+    SendScintilla(QsciScintillaBase::SCI_SETSEL, mt.first,
+                  mt.first + mt.second);
+    SendScintilla(QsciScintillaBase::SCI_SCROLLCARET);
+#else
+    QTextCursor cur = textCursor();
+    cur.setPosition(mt.first);
+    cur.setPosition(mt.first + mt.second, QTextCursor::KeepAnchor);
+    setTextCursor(cur);
+#endif
+    ApplyFindHighlights();
+    m_pFindBar->UpdateCount(m_nFindCur, (int)m_arrFindMatches.size());
+}
+
+void CCodeEditor::ApplyFindHighlights() {
+#ifdef CASL_HAVE_QSCINTILLA
+    ClearFindHighlights();
+    for (size_t i = 0; i < m_arrFindMatches.size(); ++i) {
+        const auto& mt = m_arrFindMatches[i];
+        // indicator 0: all matches; indicator 1: current (stronger fill)
+        SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT,
+                      (int)(i == (size_t)m_nFindCur ? 1 : 0));
+        SendScintilla(QsciScintillaBase::SCI_INDICATORFILLRANGE, mt.first,
+                      mt.second);
+    }
+#else
+    const CEditorTheme& th = EditorTheme();
+    QColor clrAll = QColor(255, 213, 0, 90);    // translucent yellow
+    QColor clrCur = QColor(255, 170, 0, 170);   // stronger orange
+    if (th.m_clrPaper.lightness() < 128) {
+        clrAll = QColor(120, 170, 255, 70);
+        clrCur = QColor(0, 120, 215, 160);
+    }
+    m_arrFindSelections.clear();
+    for (size_t i = 0; i < m_arrFindMatches.size(); ++i) {
+        QTextEdit::ExtraSelection sel;
+        sel.format.setBackground(i == (size_t)m_nFindCur ? clrCur : clrAll);
+        QTextCursor cur(document());
+        cur.setPosition(m_arrFindMatches[i].first);
+        cur.setPosition(m_arrFindMatches[i].first + m_arrFindMatches[i].second,
+                        QTextCursor::KeepAnchor);
+        sel.cursor = cur;
+        m_arrFindSelections.append(sel);
+    }
+    OnHighlightCurrentLine();
+#endif
+}
+
+void CCodeEditor::ClearFindHighlights() {
+#ifdef CASL_HAVE_QSCINTILLA
+    // SCI_INDICATORCLEARRANGE only clears the CURRENT indicator: clear both
+    const int nLen = (int)SendScintilla(QsciScintillaBase::SCI_GETLENGTH);
+    for (int nInd = 0; nInd < 2; ++nInd) {
+        SendScintilla(QsciScintillaBase::SCI_SETINDICATORCURRENT, nInd);
+        SendScintilla(QsciScintillaBase::SCI_INDICATORCLEARRANGE, 0, nLen);
+    }
+#else
+    m_arrFindSelections.clear();
+    OnHighlightCurrentLine();
+#endif
 }
 
 void CCodeEditor::SetSourceText(const QString& strText) {

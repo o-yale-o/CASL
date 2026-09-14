@@ -28,6 +28,7 @@ public:
     // ---- test hooks (used by tests/test_gui.cpp) ---------------------------
     CMachineRunner* GetRunnerForTest() const;
     CRegistersPanel* GetRegistersPanelForTest() const { return m_pRegistersPanel; }
+    CCodeEditor* GetEditorForTest() const { return m_pEditor; }
     void SetSourceForTest(const QString& strText);
     void TriggerAssembleForTest() { OnAssemble(); }
     void TriggerStepForTest() { OnStep(); }

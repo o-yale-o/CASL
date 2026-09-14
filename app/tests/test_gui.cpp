@@ -8,6 +8,10 @@
 #include "MainWindow.hpp"
 #include "MachineRunner.hpp"
 #include "Panels.hpp"
+#include "CodeEditor.hpp"
+#include "FindBar.hpp"
+
+#include <QLineEdit>
 
 #include "casl/Machine.hpp"
 
@@ -115,6 +119,47 @@ int main(int argc, char** argv) {
           "tooltip: symbol MAIN shows address");
     Check(wnd.MakeTooltipTextForTest("FOO") == QString(),
           "tooltip: unknown word suppressed");
+
+    // ---- find bar ----
+    CCodeEditor* pEditor = wnd.GetEditorForTest();
+    pEditor->ShowFindBar();
+    CFindBar* pFindBar = pEditor->GetFindBarForTest();
+    Check(pFindBar != nullptr && pFindBar->isVisible(),
+          "find bar shows via API");
+    QLineEdit* peditFind = pFindBar->findChild<QLineEdit*>();
+    peditFind->setText("LD");
+    Check(pEditor->GetFindMatchCountForTest() == 2,
+          "find: LD matches twice in 3-line program");
+    Check(pEditor->GetFindIndexForTest() == 0, "find: current index 0");
+    // navigate next twice -> wraps back to 0
+    emit pFindBar->NextRequested();
+    Check(pEditor->GetFindIndexForTest() == 1, "find: next goes to index 1");
+    emit pFindBar->NextRequested();
+    Check(pEditor->GetFindIndexForTest() == 0, "find: next wraps to index 0");
+    emit pFindBar->PrevRequested();
+    Check(pEditor->GetFindIndexForTest() == 1,
+          "find: prev wraps to last match");
+    // case sensitive halves the matches (ld lowercase absent)
+    pFindBar->SetCaseSensitiveForTest(true);
+    Check(pEditor->GetFindMatchCountForTest() == 2,
+          "find: Aa toggle keeps LD matches");
+    peditFind->setText("ld");
+    Check(pEditor->GetFindMatchCountForTest() == 0,
+          "find: case-sensitive ld = no matches");
+    pFindBar->SetCaseSensitiveForTest(false);
+    Check(pEditor->GetFindMatchCountForTest() == 2,
+          "find: case-insensitive ld = 2 matches");
+    // whole-word: 'LD' is a whole word on both lines -> still 2
+    pFindBar->SetWholeWordForTest(true);
+    Check(pEditor->GetFindMatchCountForTest() == 2,
+          "find: whole-word LD = 2 matches");
+    peditFind->setText("L");
+    Check(pEditor->GetFindMatchCountForTest() == 0,
+          "find: whole-word L = no matches (LD is longer)");
+    // close
+    emit pFindBar->CloseRequested();
+    QCoreApplication::processEvents();
+    Check(!pFindBar->isVisible(), "find bar hides on close");
 
     std::printf("\n%d passed, %d failed\n", s_nPassed, s_nFailed);
     return s_nFailed == 0 ? 0 : 1;

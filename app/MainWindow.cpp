@@ -219,6 +219,12 @@ void CMainWindow::CreateActions() {
     pFileMenu->addAction(m_pactNew);
     pFileMenu->addAction(m_pactOpen);
     pFileMenu->addAction(m_pactSave);
+    QMenu* pEditMenu = menuBar()->addMenu("编辑(&E)");
+    QAction* pactFind = new QAction("查找", this);
+    pactFind->setShortcut(QKeySequence::Find); // Ctrl+F (also handled by editor)
+    connect(pactFind, &QAction::triggered, m_pEditor,
+            &CCodeEditor::ShowFindBar);
+    pEditMenu->addAction(pactFind);
     QMenu* pDebugMenu = menuBar()->addMenu("调试(&D)");
     pDebugMenu->addAction(m_pactAssemble);
     pDebugMenu->addSeparator();

@@ -44,6 +44,8 @@ qt_add_executable(CASLStudio
     CodeEditor.cpp
     CommandHelp.hpp
     CommandHelp.cpp
+    FindBar.hpp
+    FindBar.cpp
     MachineRunner.hpp
     MachineRunner.cpp
     MainWindow.hpp
@@ -135,6 +137,7 @@ qt_add_executable(test_gui tests/test_gui.cpp
     Panels.cpp
     CodeEditor.cpp
     CommandHelp.cpp
+    FindBar.cpp
     MachineRunner.cpp)
 target_include_directories(test_gui PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(test_gui PRIVATE Qt6::Widgets casl::core)
