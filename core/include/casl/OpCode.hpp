@@ -54,7 +54,12 @@ enum class EOp : uint8_t {
     opCALL = 0x52,
     opRET  = 0x53,
     opLDR  = 0x14,  // register-to-register LD (assembler pseudo-encoding)
+    opLAD  = 0x15,  // load effective address (no flag update)   [CASL II]
+    opLEA  = 0x16,  // legacy LEA: load effective address + flags [old CASL]
     opSVC  = 0x70,  // supervisor call: 0=EXIT, 1=IN, 2=OUT
+    opJPZ   = 0x46, // legacy: jump if plus or zero (not minus)   [old CASL]
+    opRPUSH = 0x54, // push GR1..GR7 in order                     [CASL II]
+    opRPOP  = 0x55, // pop into GR7..GR1 (restores GR1 first)     [CASL II]
 };
 
 // SVC function codes

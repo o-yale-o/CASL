@@ -137,6 +137,15 @@ bool CMachine::Step() {
         SetLogicFlags((uint16_t)m_arrGr[dec.m_byGr]);
         break;
     }
+    case EOp::opLAD: // load effective address itself, flags untouched
+        m_arrGr[dec.m_byGr] = (int16_t)wEa();
+        break;
+    case EOp::opLEA: { // legacy LEA: like LAD but updates SF/ZF
+        uint16_t wAddr = wEa();
+        m_arrGr[dec.m_byGr] = (int16_t)wAddr;
+        SetLogicFlags(wAddr);
+        break;
+    }
     case EOp::opST:
         WriteWord(wEa(), (uint16_t)m_arrGr[dec.m_byGr]);
         break;
@@ -228,9 +237,17 @@ bool CMachine::Step() {
     case EOp::opJNZ:  if (!m_bZf) DoJump(); break;
     case EOp::opJZE:  if (m_bZf) DoJump(); break;
     case EOp::opJOV:  if (m_bOf) DoJump(); break;
+    case EOp::opJPZ:  if (!m_bSf) DoJump(); break; // legacy: plus or zero
 
     case EOp::opPUSH: Push(ReadWord(wEa())); break;
     case EOp::opPOP:  m_arrGr[dec.m_byGr] = (int16_t)Pop(); break;
+
+    case EOp::opRPUSH: // push GR1..GR7 in order
+        for (int i = 1; i <= 7; ++i) Push((uint16_t)m_arrGr[i]);
+        break;
+    case EOp::opRPOP: // pop into GR7..GR1 (GR1 restored first)
+        for (int i = 7; i >= 1; --i) m_arrGr[i] = (int16_t)Pop();
+        break;
 
     case EOp::opCALL:
         Push((uint16_t)(m_wPr + 2)); // return address (after operand word)

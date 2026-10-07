@@ -98,7 +98,11 @@ std::vector<CSourceLine> ParseLines(const std::string& strSource,
                 "ST", "ADDA", "ADDL", "SUBA", "SUBL", "AND", "OR", "XOR",
                 "CPA", "CPL", "SLA", "SRA", "SLL", "SRL", "JUMP", "JPL",
                 "JMI", "JNZ", "JZE", "JOV", "PUSH", "POP", "CALL", "RET",
-                "SVC"};
+                "SVC",
+                // CASL II additions
+                "LAD", "RPUSH", "RPOP",
+                // legacy (pre-2001 CASL/COMET) compatibility aliases
+                "LEA", "JPZ", "ADD", "SUB", "EOR", "JMP"};
             bool bHeadIsOp = s_arrOps.count(Upper(strHead)) != 0;
             // CASL: if the first token is not an opcode, it must be a label.
             if (!bHeadIsOp) {
@@ -144,6 +148,12 @@ const CMnemoInfo s_arrMnemonics[] = {
     {"JMI", EOp::opJMI},   {"JNZ", EOp::opJNZ},     {"JZE", EOp::opJZE},
     {"JOV", EOp::opJOV},   {"PUSH", EOp::opPUSH},   {"POP", EOp::opPOP},
     {"CALL", EOp::opCALL}, {"RET", EOp::opRET},
+    // CASL II additions
+    {"LAD", EOp::opLAD},     {"RPUSH", EOp::opRPUSH}, {"RPOP", EOp::opRPOP},
+    // legacy (pre-2001 CASL/COMET) compatibility aliases
+    {"LEA", EOp::opLEA},     {"JPZ", EOp::opJPZ},
+    {"ADD", EOp::opADDA},    {"SUB", EOp::opSUBA},
+    {"EOR", EOp::opXOR},     {"JMP", EOp::opJUMP},
 };
 
 bool LookupMnemonic(const std::string& strName, EOp& eOp) {

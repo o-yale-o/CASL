@@ -89,14 +89,16 @@ namespace {
 
 const char* s_pszCaslKeywords =
     "START END DS DC IN OUT EXIT NOP LD ST ADDA ADDL SUBA SUBL AND OR XOR "
-    "CPA CPL SLA SRA SLL SRL JUMP JPL JMI JNZ JZE JOV PUSH POP CALL RET SVC";
+    "CPA CPL SLA SRA SLL SRL JUMP JPL JMI JNZ JZE JOV PUSH POP CALL RET SVC "
+    "LAD RPUSH RPOP LEA JPZ ADD SUB EOR JMP";
 
 bool IsCaslKeywordShared(const QByteArray& arrWord) {
     const char* arrKeywords[] = {
         "START", "END", "DS", "DC", "IN", "OUT", "EXIT", "NOP", "LD", "ST",
         "ADDA", "ADDL", "SUBA", "SUBL", "AND", "OR", "XOR", "CPA", "CPL",
         "SLA", "SRA", "SLL", "SRL", "JUMP", "JPL", "JMI", "JNZ", "JZE",
-        "JOV", "PUSH", "POP", "CALL", "RET", "SVC"};
+        "JOV", "PUSH", "POP", "CALL", "RET", "SVC",
+        "LAD", "RPUSH", "RPOP", "LEA", "JPZ", "ADD", "SUB", "EOR", "JMP"};
     for (const char* pszKw : arrKeywords)
         if (arrWord == pszKw) return true;
     return false;

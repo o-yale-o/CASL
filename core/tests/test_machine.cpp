@@ -250,4 +250,104 @@ CASL_TEST(reset_restores_state) {
     CHECK_EQ((int)m.Sp(), 0xFFFE);
 }
 
+CASL_TEST(casl2_lad_rpush_rpop) {
+    // LAD loads the effective address itself (no flags); RPUSH saves
+    // GR1..GR7, the subroutine clobbers them, RPOP restores everything.
+    CAssembleResult r = Assemble(
+        "        START\n"
+        "        LAD   GR1,BUF,GR2\n"
+        "        LD    GR0,0,GR1\n"
+        "        RPUSH\n"
+        "        LD    GR1,#AAAA\n"
+        "        LD    GR2,#BBBB\n"
+        "        RPOP\n"
+        "        ST    GR0,ANS\n"
+        "        EXIT\n"
+        "BUF     DC    #1111\n"
+        "        DC    #2222\n"
+        "        DC    #3333\n"
+        "        DC    #4444\n"
+        "        DC    #5555\n"
+        "ANS     DS    1\n"
+        "        END\n");
+    // set GR2 = 3 before... source has no such step; instead verify via the
+    // simpler route: GR2 is 0 at start, so EA = BUF + 0.
+    CMachine m = MakeMachine(r);
+    RunToHalt(m);
+    CHECK_EQ((int)m.Gr(1), r.m_mapSymbols["BUF"]); // LAD loaded the address
+    CHECK_EQ((int)m.Mem(r.m_mapSymbols["ANS"]), 0x1111); // BUF[0] content
+    // GR1/GR2 were clobbered to #AAAA/#BBBB mid-run; RPOP restored the
+    // original values (GR1 = BUF address, GR2 = 0), stack balanced
+    CHECK_EQ((int)m.Gr(1), r.m_mapSymbols["BUF"]);
+    CHECK_EQ((int)m.Gr(2), 0);
+    CHECK_EQ((int)m.Sp(), 0xFFFE);  // stack balanced
+}
+
+CASL_TEST(casl2_lad_with_index) {
+    // LAD GR1,BUF,GR2 with GR2=2 -> GR1 = BUF+2 (address arithmetic)
+    CAssembleResult r = Assemble(
+        "        START\n"
+        "        LD    GR2,#2\n"
+        "        LAD   GR1,BUF,GR2\n"
+        "        ST    GR1,ANS\n"
+        "        EXIT\n"
+        "BUF     DS    4\n"
+        "ANS     DS    1\n"
+        "        END\n");
+    CMachine m = MakeMachine(r);
+    RunToHalt(m);
+    CHECK_EQ((int)m.Mem(r.m_mapSymbols["ANS"]),
+             r.m_mapSymbols["BUF"] + 2);
+}
+
+CASL_TEST(legacy_lea_jpz_add_sub_eor_jmp) {
+    // Old CASL mnemonics must assemble and behave correctly:
+    // - LEA sets flags (unlike LAD): LEA GR1,-1,GR1 + JZE is the classic
+    //   "decrement and test for zero" idiom
+    // - JPZ jumps when not minus (plus OR zero)
+    // - ADD/SUB/EOR/JMP behave exactly like ADDA/SUBA/XOR/JUMP
+    CAssembleResult r = Assemble(
+        "        START\n"
+        "        LD    GR1,#3\n"
+        "LOOP    LEA   GR1,-1,GR1\n"
+        "        JZE   DONE\n"
+        "        ADD   GR2,#1\n"
+        "        JMP   LOOP\n"
+        "DONE    LD    GR0,#5\n"
+        "        CPA   GR0,#0\n"
+        "        JPZ   POS\n"
+        "        LD    GR3,#F\n"
+        "        SUB   GR3,#1\n"
+        "        EOR   GR3,#FFFF\n"
+        "        ST    GR3,ANS\n"
+        "        EXIT\n"
+        "POS     ST    GR2,ANS\n"
+        "        EXIT\n"
+        "ANS     DS    1\n"
+        "        END\n");
+    CMachine m = MakeMachine(r);
+    RunToHalt(m);
+    // loop: GR1 3->2->1->0, so GR2 was incremented twice -> ANS = 2
+    CHECK_EQ((int)m.Mem(r.m_mapSymbols["ANS"]), 2);
+    // spot-check the alias encoding is identical to the modern spelling
+    CAssembleResult a = Assemble(
+        "        START\n"
+        "        ADD   GR0,#1\n"
+        "        SUB   GR0,#1\n"
+        "        EOR   GR0,#0\n"
+        "        JMP   FIN\n"
+        "FIN     EXIT\n"
+        "        END\n");
+    CAssembleResult b = Assemble(
+        "        START\n"
+        "        ADDA  GR0,#1\n"
+        "        SUBA  GR0,#1\n"
+        "        XOR   GR0,#0\n"
+        "        JUMP  FIN\n"
+        "FIN     EXIT\n"
+        "        END\n");
+    CHECK(a.m_bOk && b.m_bOk);
+    CHECK(a.m_arrWords == b.m_arrWords); // identical machine images
+}
+
 int main() { return RunAll("machine"); }

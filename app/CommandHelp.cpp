@@ -394,6 +394,59 @@ const CHelpEntry s_arrHelp[] = {
  "SUB1    ST    GR0,WORK\n"
  "        ...\n"
  "        RET"},
+
+{"LAD", "传送", "LAD GR,addr[,GRx]",
+ "【算地址】EA = addr + GRx 里存的数（同 LD）。\n"
+ "【干什么】把【地址本身】装进 GR：GR ← EA。"
+ "注意与 LD 的区别：LD 装的是内存 EA 处的内容，LAD 装的是 EA 这个地址值。\n"
+ "【标志】不更新 FR。\n"
+ "【例】设 BUF=0x0100、GR2 里存的数是 8。LAD GR1,BUF,GR2 → GR1 = 0x0108"
+ "（把 BUF+8 这个地址当指针）。随后 LD GR0,0,GR1 取出该地址的内容——"
+ "两步合起来就是按 GR2 当下标取 BUF[GR2]。",
+ "        LAD   GR1,BUF,GR2  ; GR1 = BUF+GR2（地址值）\n"
+ "        LD    GR0,0,GR1    ; GR0 = 该地址的内容"},
+
+{"RPUSH", "栈", "RPUSH",
+ "【干什么】把 GR1、GR2、...、GR7 的值按顺序依次压栈（共 7 个字，"
+ "SP 减 7）。子程序开头一条指令即可保存全部寄存器。\n"
+ "【例】GR1=1、GR2=2、...、GR7=7 时执行 RPUSH：栈里从深到浅依次是 "
+ "1、2、3、4、5、6、7（GR1 的 1 最先压、位置最深）。\n"
+ "【配对】与 RPOP 配对恢复：RPUSH 后栈序是 GR1..GR7，"
+ "RPOP 按 GR7..GR1 取回，正好复原。",
+ "        RPUSH            ; 保存 GR1..GR7\n"
+ "        CALL  SUB1\n"
+ "        RPOP             ; 恢复 GR1..GR7"},
+
+{"RPOP", "栈", "RPOP",
+ "【干什么】从栈依次弹出 7 个字，按 GR7、GR6、...、GR1 的顺序装回"
+ "（后压的 GR7 先出）。与 RPUSH 严格配对。\n"
+ "【例】RPUSH 压入 GR1..GR7 后执行 RPOP：7 个寄存器全部恢复原值，"
+ "SP 回到执行 RPUSH 前的位置。\n"
+ "【口诀】RPUSH 从 1 压到 7，RPOP 从 7 弹回 1。",
+ "        RPUSH            ; 压入 GR1..GR7\n"
+ "        ...\n"
+ "        RPOP             ; 弹回 GR7..GR1，全部复原"},
+
+{"LEA", "老CASL兼容", "LEA GR,addr[,GRx]",
+ "【兼容指令】老 CASL（COMET，2001 年前）的指令，本汇编器原样接受。"
+ "CASL II 里请用 LAD。\n"
+ "【与 LAD 的区别】LEA 除了把 EA 装进 GR，还会【更新 SF/ZF】"
+ "（按装入的地址值）。老程序常用 LEA GR1,-1,GR1 配合 JZE 做"
+ "“减一并判零”，依赖的就是这个置标志行为——直接换成 LAD 会改变行为！\n"
+ "【例】LEA GR1,-1,GR1：GR1 减 1；若减到 0 则 ZF=1，配 JZE DONE 跳出循环。",
+ "        LEA   GR1,-1,GR1  ; GR1 减 1 并置标志（老写法）\n"
+ "        JZE   DONE        ; 减到 0 就结束"},
+
+{"JPZ", "老CASL兼容", "JPZ addr[,GRx]",
+ "【兼容指令】老 CASL（COMET，2001 年前）的条件转移，本汇编器原样接受。"
+ "CASL II 里没有它：JPZ = JPL + JZE 的合并（非负就跳）。\n"
+ "【干什么】SF=0（结果为正或零）时 PR ← EA，否则顺序执行。"
+ "等价于“不是负数就跳”。\n"
+ "【例】CPA GR0,#0 后接 JPZ DONE：GR0 ≥ 0 就跳到 DONE"
+ "（GR0 < 0 时 SF=1 不跳）。CASL II 等价写法是反向用 JMI 跳过继续执行的段。",
+ "        CPA   GR0,#0\n"
+ "        JPZ   DONE       ; GR0 >= 0 就跳（老写法）\n"
+ "        ; 等价 CASL II 写法：JMI 跳过 DONE 段的反向判断"},
 };
 
 const int s_nHelpCount = (int)(sizeof(s_arrHelp) / sizeof(s_arrHelp[0]));
@@ -436,6 +489,15 @@ const char* s_arrFullNames[][2] = {
     {"POP", "Pop from Stack"},
     {"CALL", "Call Subroutine"},
     {"RET", "Return from Subroutine"},
+    {"LAD", "Load ADress"},
+    {"RPUSH", "Push GR1..GR7 onto Stack"},
+    {"RPOP", "Pop Stack into GR7..GR1"},
+    {"LEA", "Load Effective Address (legacy)"},
+    {"JPZ", "Jump on Plus or Zero (legacy)"},
+    {"ADD", "Add Arithmetic (legacy alias of ADDA)"},
+    {"SUB", "Subtract Arithmetic (legacy alias of SUBA)"},
+    {"EOR", "Exclusive OR (legacy alias of XOR)"},
+    {"JMP", "Jump (legacy alias of JUMP)"},
 };
 
 QString FullNameOf(const char* pszName) {

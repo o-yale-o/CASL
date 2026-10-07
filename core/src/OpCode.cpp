@@ -31,6 +31,11 @@ const char* OpName(EOp eOp) {
     case EOp::opCALL: return "CALL";
     case EOp::opRET:  return "RET";
     case EOp::opLDR:  return "LD";
+    case EOp::opLAD:  return "LAD";
+    case EOp::opLEA:  return "LEA";
+    case EOp::opJPZ:  return "JPZ";
+    case EOp::opRPUSH: return "RPUSH";
+    case EOp::opRPOP:  return "RPOP";
     case EOp::opSVC:  return "SVC";
     }
     return "???";
@@ -40,6 +45,8 @@ EAddrMode AddrModeOf(EOp eOp) {
     switch (eOp) {
     case EOp::opNOP:
     case EOp::opRET:
+    case EOp::opRPUSH:
+    case EOp::opRPOP:
         return EAddrMode::amNone;
     case EOp::opSVC:
     case EOp::opLDR:
@@ -50,11 +57,15 @@ EAddrMode AddrModeOf(EOp eOp) {
     case EOp::opJNZ:
     case EOp::opJZE:
     case EOp::opJOV:
+    case EOp::opJPZ:
     case EOp::opPUSH:
     case EOp::opCALL:
         return EAddrMode::amMem;
     case EOp::opPOP:
         return EAddrMode::amStack;
+    case EOp::opLAD:
+    case EOp::opLEA:
+        return EAddrMode::amRegMem;
     default:
         return EAddrMode::amRegMem;
     }
